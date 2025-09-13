@@ -473,6 +473,14 @@ class McFlowServer {
             required: ['action'],
           },
         },
+        {
+          name: 'refresh',
+          description: 'Refresh MCP server to pick up code changes without restarting',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
       ],
     }));
 
@@ -720,6 +728,61 @@ class McFlowServer {
               return await this.credentialHelper.generateSecureEnvExample();
             default:
               throw new Error(`Unknown credential action: ${credAction}`);
+          }
+        
+        case 'refresh':
+          try {
+            // Clear module cache for our source files
+            const srcPath = path.join(this.workflowsPath, 'src');
+            const distPath = path.join(this.workflowsPath, 'dist');
+            
+            // Clear require cache for all our modules
+            Object.keys(require.cache).forEach(key => {
+              if (key.includes('mcflow-mcp/dist/') || key.includes('mcflow-mcp/src/')) {
+                delete require.cache[key];
+              }
+            });
+            
+            // Rebuild the project
+            const { exec } = await import('child_process');
+            const { promisify } = await import('util');
+            const execAsync = promisify(exec);
+            
+            console.error('🔄 Rebuilding McFlow...');
+            const { stdout, stderr } = await execAsync('npm run build', { cwd: this.workflowsPath });
+            
+            // Reinitialize managers with fresh modules
+            const { WorkflowManager } = await import('./workflow-manager.js');
+            const { N8nManager } = await import('./n8n-manager.js');
+            const { CredentialHelper } = await import('./credential-helper.js');
+            
+            this.workflowManager = new WorkflowManager(this.workflowsPath);
+            this.n8nManager = new N8nManager(this.workflowsPath);
+            this.credentialHelper = new CredentialHelper(this.workflowsPath);
+            
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: '✅ McFlow MCP server refreshed successfully!\n\n' +
+                        '🔄 Modules reloaded\n' +
+                        '🏗️ Project rebuilt\n' +
+                        '✨ Ready with latest changes\n\n' +
+                        'Note: This refreshes the server code but doesn\'t restart the MCP connection.\n' +
+                        'For full restart, close and reopen Claude.',
+                },
+              ],
+            };
+          } catch (error: any) {
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `❌ Failed to refresh MCP server:\n${error.message}\n\n` +
+                        'Try closing and reopening Claude for a full restart.',
+                },
+              ],
+            };
           }
         
         default:
