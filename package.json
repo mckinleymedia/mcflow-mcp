@@ -5,6 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "mcflow": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
@@ -12,6 +15,8 @@
     "start:stdio": "MCP_MODE=stdio node dist/index.js",
     "start:http": "MCP_MODE=http MCP_PORT=3000 node dist/index.js",
     "deploy": "node dist/deploy.js",
+    "compile": "node dist/cli.js compile",
+    "extract": "node dist/cli.js extract",
     "clean": "rm -rf dist",
     "prepare": "npm run build",
     "setup": "./scripts/setup-agent.sh",
@@ -30,6 +35,7 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^0.6.0",
+    "commander": "^12.0.0",
     "dotenv": "^16.6.1",
     "zod": "^3.22.0"
   },

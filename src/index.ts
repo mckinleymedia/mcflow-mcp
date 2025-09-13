@@ -15,6 +15,7 @@ import { findWorkflowsPath, validateWorkflowsPath } from './workflow-finder.js';
 import { WorkflowManager } from './workflow-manager.js';
 import { N8nManager } from './n8n-manager.js';
 import { CredentialHelper } from './credential-helper.js';
+import { NodePositioning } from './node-positioning.js';
 
 /**
  * McFlow MCP Server - Complete n8n workflow management
@@ -1134,7 +1135,7 @@ class McFlowServer {
             name: 'Webhook',
             type: 'n8n-nodes-base.webhook',
             typeVersion: 1,
-            position: [250, 300],
+            position: NodePositioning.getHorizontalPosition(0),
             parameters: {
               path: config.webhookPath || `/${name}`,
               responseMode: 'onReceived',
@@ -1147,7 +1148,7 @@ class McFlowServer {
             name: 'Process Data',
             type: 'n8n-nodes-base.code',
             typeVersion: 2,
-            position: [500, 300],
+            position: NodePositioning.getHorizontalPosition(1),
             parameters: {
               language: 'javaScript',
               jsCode: config.processCode || '// Process the incoming data\nreturn $input.all();',
@@ -1158,7 +1159,7 @@ class McFlowServer {
             name: 'Respond',
             type: 'n8n-nodes-base.respondToWebhook',
             typeVersion: 1,
-            position: [750, 300],
+            position: NodePositioning.getHorizontalPosition(2),
             parameters: {
               respondWith: 'json',
               responseBody: '={{ $json }}',
@@ -1182,7 +1183,7 @@ class McFlowServer {
             name: 'Schedule',
             type: 'n8n-nodes-base.scheduleTrigger',
             typeVersion: 1,
-            position: [250, 300],
+            position: NodePositioning.getVerticalPosition(0),
             parameters: {
               rule: {
                 interval: [

@@ -5,8 +5,8 @@ McFlow is a Model Context Protocol (MCP) server that provides enhanced context a
 ## Features
 
 - **Workflow Management**: Create, read, update, and deploy n8n workflows
-- **Code Extraction**: Extract code/SQL/prompts from nodes into separate files for better editing
-- **Automatic Deployment**: Smart injection of file content back into nodes during deployment
+- **Code Extraction & Compilation**: Maintain code in separate files with automatic injection during deployment
+- **Automatic Deployment**: Smart compilation and deployment with code injection
 - **Template Generation**: Built-in templates for common workflow patterns
 - **Multi-Project Support**: Handle simple or complex repository structures
 - **Workflow Analysis**: Analyze dependencies, validate structure, and optimize performance
@@ -91,11 +91,14 @@ mcflow list
 # Create a new workflow
 mcflow create --name "my-automation" --workflow {...}
 
-# Deploy workflows to n8n
-mcflow deploy
+# Extract code from nodes into separate files
+mcflow extract
 
-# Extract code from nodes for editing
-mcflow extract_code
+# Compile workflows (inject code from files)
+mcflow compile --output
+
+# Deploy workflows to n8n (with automatic compilation)
+mcflow deploy
 
 # Generate from template
 mcflow generate --template webhook-api --name "api-handler"
@@ -103,13 +106,14 @@ mcflow generate --template webhook-api --name "api-handler"
 
 ## Key Concepts
 
-### Code Extraction System
+### Code Extraction & Compilation System
 
 McFlow separates code from workflow JSON for better development:
 
 1. **Extract**: Pull code/SQL/prompts from nodes into `workflows/nodes/` directory
 2. **Edit**: Use your IDE with full syntax highlighting and tooling
-3. **Deploy**: Automatically inject code back into nodes when deploying
+3. **Compile**: Process workflows to inject code from external files
+4. **Deploy**: Automatically compile and deploy to n8n
 
 ### Project Structure
 
@@ -205,6 +209,7 @@ npm run dev
 - [Integration Guide](docs/integrations.md) - Setting up with different MCP clients
 
 ### Development
+- [Workflow Compilation](docs/compilation.md) - Code extraction and compilation system
 - [Node Reference](docs/nodes.md) - Real n8n nodes reference and best practices
 - [Git Workflow](docs/git.md) - Version control guidelines and best practices
 - [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
