@@ -31,7 +31,7 @@ import { CredentialHelper } from './credential-helper.js';
  * 2. McFlow injects file content during deployment
  * 3. n8n cannot read files - $readFile() does NOT work in nodes
  * 
- * See IMPORTANT_INSTRUCTIONS.md for complete details.
+ * See docs/ai/instructions.md for complete details.
  */
 class McFlowServer {
   private server: Server;
@@ -1244,7 +1244,7 @@ class McFlowServer {
     console.error('⚠️  IMPORTANT: NEVER use n8n CLI commands directly!');
     console.error('   Always use McFlow tools for ALL workflow operations.');
     console.error('   Using n8n directly will BREAK the node extraction system.');
-    console.error('   See IMPORTANT_INSTRUCTIONS.md for details.');
+    console.error('   See docs/ai/instructions.md for details.');
     console.error('');
   }
 }

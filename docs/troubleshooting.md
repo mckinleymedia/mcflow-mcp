@@ -60,7 +60,7 @@ SQLITE_CONSTRAINT: NOT NULL constraint failed: workflow_entity.active
 
 **Solution:** 
 - Remind the AI: "Use McFlow commands only, never n8n directly"
-- Point to IMPORTANT_INSTRUCTIONS.md
+- Point to docs/ai/instructions.md
 - The extracted nodes won't work if deployed with n8n directly
 
 ### 4. $readFile() in Workflows

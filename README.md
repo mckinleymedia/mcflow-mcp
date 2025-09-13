@@ -1,145 +1,236 @@
 # McFlow - MCP Server for n8n Workflow Automation
 
-> ⚠️ **CRITICAL: AI agents MUST use McFlow commands, NEVER use n8n CLI directly! See [IMPORTANT_INSTRUCTIONS.md](IMPORTANT_INSTRUCTIONS.md)**
-
-McFlow is a Model Context Protocol (MCP) server that provides enhanced context and automation capabilities for creating and managing n8n workflows. It **completely replaces** direct n8n CLI usage and manages code extraction/injection for workflows.
-
-## 🚨 NEVER USE N8N COMMANDS DIRECTLY
-
-**This MCP server MUST be used for ALL n8n operations. Using n8n CLI directly will break the workflow system!**
-
-```bash
-# ❌ NEVER use these:
-n8n import:workflow  # Use: mcflow deploy
-n8n export:workflow  # Use: mcflow export
-n8n execute:workflow # Use: mcflow execute
-n8n list:workflow    # Use: mcflow deployed
-
-# ✅ ALWAYS use McFlow commands instead
-```
+McFlow is a Model Context Protocol (MCP) server that provides enhanced context and automation capabilities for creating and managing n8n workflows. It streamlines workflow development with code extraction, automatic documentation, and intelligent project organization.
 
 ## Features
 
-- **Workflow Management**: List, read, create, and update n8n workflows
-- **Node Extraction System**: Extracts code/prompts/SQL to separate files for better editing
-- **Automatic Code Injection**: Injects file content into nodes during deployment
-- **Smart Naming**: Automatically generates succinct, unique workflow names
-- **Auto-Documentation**: Creates and maintains `docs/workflows.md` for all workflows
-- **Custom Instructions**: Supports project-specific workflow creation guidelines
-- **Structure Detection**: Works with both simple (`./workflows/`) and multi-project repos
-- **Project Organization**: Intelligently handles different repository structures
-- **Workflow Analysis**: Analyze workflow dependencies and structure
-- **Context-Aware**: Provides AI assistants with workflow instructions and best practices
-- **Template Integration**: Follows n8n-workflows-template patterns and conventions
+- **Workflow Management**: Create, read, update, and deploy n8n workflows
+- **Code Extraction**: Extract code/SQL/prompts from nodes into separate files for better editing
+- **Automatic Deployment**: Smart injection of file content back into nodes during deployment
+- **Template Generation**: Built-in templates for common workflow patterns
+- **Multi-Project Support**: Handle simple or complex repository structures
+- **Workflow Analysis**: Analyze dependencies, validate structure, and optimize performance
+- **Auto-Documentation**: Automatically maintain workflow documentation
 
-## How Node Extraction Works
+## Quick Start
 
-McFlow extracts node content to files for better editing and version control:
+### Prerequisites
 
-1. **Extract**: `mcflow extract_code` removes code from nodes, stores in `workflows/nodes/`
-2. **Edit**: Use your editor on extracted files with syntax highlighting
-3. **Deploy**: `mcflow deploy` injects content back and sends to n8n
+- Node.js 18+ installed
+- n8n instance running (local or remote)
+- MCP-compatible client (Claude Desktop, Continue.dev, etc.)
 
-**IMPORTANT**: Never use `$readFile()` in nodes - McFlow handles all file reading!
-
-## Installation
+### Installation
 
 ```bash
+# Clone the repository
+git clone https://github.com/mckinleymedia/mcflow-mcp.git
+cd mcflow-mcp
+
+# Install dependencies
 npm install
+
+# Build the server
 npm run build
 
-# Quick setup for your AI agent
+# Optional: Quick setup script
 ./scripts/setup-agent.sh
 ```
 
-## Usage
+### Configuration
 
-### With Claude Desktop
+#### For Claude Desktop
 
-Add to your Claude Desktop configuration:
+Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "mcflow": {
       "command": "node",
-      "args": ["/path/to/mcflow/dist/index.js"],
+      "args": ["/absolute/path/to/mcflow-mcp/dist/index.js"],
       "env": {
-        "WORKFLOWS_PATH": "/path/to/n8n-workflows-template"
+        "WORKFLOWS_PATH": "/path/to/your/n8n-workflows"
       }
     }
   }
 }
 ```
 
-### Development
+#### For Continue.dev
+
+Add to your Continue configuration:
+
+```json
+{
+  "models": [
+    {
+      "model": "claude-3-5-sonnet",
+      "mcpServers": {
+        "mcflow": {
+          "command": "node",
+          "args": ["/absolute/path/to/mcflow-mcp/dist/index.js"],
+          "env": {
+            "WORKFLOWS_PATH": "/path/to/your/n8n-workflows"
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+### Basic Usage
+
+Once configured, McFlow provides these commands through your MCP client:
 
 ```bash
-npm run dev
+# List all workflows
+mcflow list
+
+# Create a new workflow
+mcflow create --name "my-automation" --workflow {...}
+
+# Deploy workflows to n8n
+mcflow deploy
+
+# Extract code from nodes for editing
+mcflow extract_code
+
+# Generate from template
+mcflow generate --template webhook-api --name "api-handler"
 ```
+
+## Key Concepts
+
+### Code Extraction System
+
+McFlow separates code from workflow JSON for better development:
+
+1. **Extract**: Pull code/SQL/prompts from nodes into `workflows/nodes/` directory
+2. **Edit**: Use your IDE with full syntax highlighting and tooling
+3. **Deploy**: Automatically inject code back into nodes when deploying
+
+### Project Structure
+
+McFlow adapts to your repository structure:
+
+```
+# Simple structure
+your-project/
+├── workflows/
+│   ├── flows/       # Workflow JSON files
+│   └── nodes/       # Extracted code files
+
+# Multi-project structure
+your-repo/
+├── project1/
+│   └── workflows/
+├── project2/
+│   └── workflows/
+```
+
+### Workflow Templates
+
+Built-in templates for common patterns:
+- `webhook-api` - REST API endpoint workflow
+- `scheduled-report` - Scheduled data reports
+- `data-sync` - Database synchronization
+- `error-handler` - Error handling workflow
+- `approval-flow` - Multi-step approval process
 
 ## Available Tools
 
-### Workflow Management
-- **list_workflows**: List all available n8n workflows, optionally filtered by project
-- **read_workflow**: Read a specific n8n workflow JSON file
-- **create_workflow**: Create a new n8n workflow in a project
-- **update_workflow**: Update an existing n8n workflow
-- **analyze_workflow**: Analyze a workflow's structure, nodes, and dependencies
-- **get_project_info**: Get information about a specific project
+### Core Workflow Operations
+- `list` - List all workflows in project
+- `read` - Read workflow JSON
+- `create` - Create new workflow
+- `update` - Update existing workflow
+- `delete` - Remove workflow
 
-### Workflow Manipulation
-- **validate_workflow**: Validate workflow structure and check for common issues
-- **add_node_to_workflow**: Add a new node to an existing workflow with automatic positioning
-- **connect_nodes**: Create connections between workflow nodes
-- **generate_workflow_from_template**: Generate workflows from built-in templates (webhook-api, scheduled-report, etc.)
+### Deployment & Execution
+- `deploy` - Deploy workflows to n8n (with code injection)
+- `export` - Export workflows from n8n
+- `execute` - Run a workflow
+- `deployed` - List deployed workflows
+- `activate` - Activate/deactivate workflows
 
-## Resources
+### Code Management
+- `extract_code` - Extract node content to files
+- `list_code` - List extracted code files
+- `create_module` - Create shared code modules
 
-The server provides access to workflow creation instructions:
-- General AI instructions for working with n8n workflows
-- Process instructions for workflow creation
-- Repository-specific conventions and patterns
+### Analysis & Validation
+- `analyze` - Analyze workflow structure
+- `validate` - Check for common issues
+- `status` - Show deployment status
+- `credentials` - Analyze credential requirements
 
-## Prompts
+## Development
 
-### create_n8n_workflow
-Generate a new n8n workflow for a specific use case.
+```bash
+# Run in development mode
+npm run dev
 
-### optimize_workflow
-Analyze and optimize an existing workflow for performance and best practices.
+# Run tests
+npm test
 
-## Documentation Features
+# Build for production
+npm run build
+```
 
-McFlow automatically maintains workflow documentation when a `docs` folder exists in your project:
+## Troubleshooting
 
-### Auto-Generated Files
+### Common Issues
 
-1. **`docs/workflows.md`** - Comprehensive list of all workflows with:
-   - Workflow descriptions and file paths
-   - Trigger types and integrations used
-   - Creation/update timestamps
-   - Organized by workflow purpose
+1. **Workflows not deploying**: Ensure you're using `mcflow deploy`, not n8n CLI directly
+2. **Code not injecting**: Check that extracted files exist in `workflows/nodes/`
+3. **Connection errors**: Verify n8n is running and accessible
+4. **Missing credentials**: Use `mcflow credentials analyze` to check requirements
 
-2. **`docs/workflow-instructions.md`** - Template for custom instructions:
-   - Project-specific workflow guidelines
-   - Naming conventions
-   - Security requirements
-   - Testing procedures
+### Debug Mode
 
-### Workflow Naming
+Enable debug logging:
 
-McFlow automatically ensures workflow names are:
-- **Succinct**: Removes redundant words like "workflow"
-- **Unique**: Adds numeric suffixes if needed
-- **Clean**: Converts to kebab-case, max 30 characters
+```bash
+export DEBUG=mcflow:*
+npm run dev
+```
 
-## Configuration
+## Documentation
 
-Set the `WORKFLOWS_PATH` environment variable to point to your workflows directory. The server automatically detects:
-- **Simple structure**: `./workflows/` folder in standard repos
-- **Multi-project**: Multiple projects with individual workflow folders
+### Getting Started
+- [Overview](docs/overview.md) - Introduction to McFlow concepts and benefits
+- [Architecture](docs/architecture.md) - Technical architecture and design patterns
+- [Integration Guide](docs/integrations.md) - Setting up with different MCP clients
+
+### Development
+- [Node Reference](docs/nodes.md) - Real n8n nodes reference and best practices
+- [Git Workflow](docs/git.md) - Version control guidelines and best practices
+- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+
+### Operations
+- [Credentials](docs/credentials.md) - Credential security and management
+- [Common Issues](docs/issues.md) - n8n-specific issues and fixes
+
+### AI Agent Documentation
+- [AI Instructions](docs/ai/instructions.md) - Critical instructions for AI agents
+- [Workflow Guidelines](docs/ai/workflows.md) - Workflow creation instructions for AI
+- [LLM Configuration](docs/ai/llm.md) - LLM parameters for AI nodes
+
+## Contributing
+
+Contributions are welcome! Please read our contributing guidelines and submit PRs to the main repository.
 
 ## License
 
-MIT
+MIT License - see LICENSE file for details
+
+## Support
+
+- GitHub Issues: [mcflow-mcp/issues](https://github.com/mckinleymedia/mcflow-mcp/issues)
+- Documentation: Check the `docs/` folder for detailed guides
+
+---
+
+> **For AI Agents**: See [docs/ai/instructions.md](docs/ai/instructions.md) for critical usage instructions
