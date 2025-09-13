@@ -1,0 +1,56 @@
+{
+  "name": "mcflow",
+  "version": "0.1.0",
+  "description": "MCP server for n8n workflow automation with enhanced context capabilities",
+  "protocol": "stdio",
+  "server": {
+    "command": "node",
+    "args": ["./dist/index.js"],
+    "env": {
+      "WORKFLOWS_PATH": "../n8n-workflows-template"
+    }
+  },
+  "capabilities": {
+    "tools": true,
+    "resources": true,
+    "prompts": true
+  },
+  "tools": [
+    "list_workflows",
+    "read_workflow",
+    "create_workflow",
+    "update_workflow",
+    "analyze_workflow",
+    "get_project_info",
+    "validate_workflow",
+    "add_node_to_workflow",
+    "connect_nodes",
+    "generate_workflow_from_template"
+  ],
+  "integrations": {
+    "claude_desktop": {
+      "config_path": "~/Library/Application Support/Claude/claude_desktop_config.json",
+      "format": "claude"
+    },
+    "cursor": {
+      "config_path": "~/.cursor/mcp/config.json",
+      "format": "standard"
+    },
+    "windsurf": {
+      "config_path": "~/.windsurf/mcp/config.json",
+      "format": "standard"
+    },
+    "continue": {
+      "config_path": "~/.continue/config.json",
+      "format": "continue"
+    },
+    "cody": {
+      "config_path": "~/.cody/mcp-servers.json",
+      "format": "standard"
+    },
+    "aider": {
+      "config_path": "~/.aider/mcp.json",
+      "format": "standard"
+    }
+  }
+}

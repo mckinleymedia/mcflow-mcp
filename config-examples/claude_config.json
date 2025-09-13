@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "mcflow": {
+      "command": "node",
+      "args": ["/Users/willmckinley/CascadeProjects/mcflow-mcp/dist/index.js"],
+      "env": {
+        "WORKFLOWS_PATH": "/Users/willmckinley/CascadeProjects/n8n-workflows-template"
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "mcflow",
+  "version": "0.1.0",
+  "description": "MCP server for n8n workflow automation with enhanced context capabilities",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "start:stdio": "MCP_MODE=stdio node dist/index.js",
+    "start:http": "MCP_MODE=http MCP_PORT=3000 node dist/index.js",
+    "deploy": "node dist/deploy.js",
+    "clean": "rm -rf dist",
+    "prepare": "npm run build",
+    "setup": "./scripts/setup-agent.sh",
+    "test": "MCP_MODE=stdio node dist/index.js --test"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "llm",
+    "n8n",
+    "workflow",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.6.0",
+    "dotenv": "^16.6.1",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}

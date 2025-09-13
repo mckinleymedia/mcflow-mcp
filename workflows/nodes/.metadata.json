@@ -1,0 +1,73 @@
+{
+  "test-multi-node": [
+    {
+      "workflowName": "test-multi-node",
+      "nodeId": "python1",
+      "nodeName": "Data Analysis",
+      "nodeType": "code",
+      "subType": "python",
+      "createdAt": "2025-09-01T22:05:40.638Z",
+      "updatedAt": "2025-09-01T22:05:40.639Z"
+    }
+  ],
+  "test-workflow": [
+    {
+      "workflowName": "test-workflow",
+      "nodeId": "code1",
+      "nodeName": "Process",
+      "nodeType": "code",
+      "subType": "javascript",
+      "createdAt": "2025-09-01T22:38:56.897Z",
+      "updatedAt": "2025-09-01T22:38:56.899Z"
+    },
+    {
+      "workflowName": "test-workflow",
+      "nodeId": "prompt1",
+      "nodeName": "AI Task",
+      "nodeType": "prompt",
+      "subType": "openai",
+      "createdAt": "2025-09-01T22:38:56.899Z",
+      "updatedAt": "2025-09-01T22:38:56.899Z"
+    }
+  ],
+  "test-connections": [
+    {
+      "workflowName": "test-connections",
+      "nodeId": "code1",
+      "nodeName": "Process Data",
+      "nodeType": "code",
+      "subType": "javascript",
+      "createdAt": "2025-09-01T22:45:13.866Z",
+      "updatedAt": "2025-09-01T22:45:13.874Z"
+    },
+    {
+      "workflowName": "test-connections",
+      "nodeId": "code2",
+      "nodeName": "Transform",
+      "nodeType": "code",
+      "subType": "javascript",
+      "createdAt": "2025-09-01T22:45:13.874Z",
+      "updatedAt": "2025-09-01T22:45:13.874Z"
+    }
+  ],
+  "test-complete": [
+    {
+      "workflowName": "test-complete",
+      "nodeId": "code1",
+      "nodeName": "Process",
+      "nodeType": "code",
+      "subType": "javascript",
+      "createdAt": "2025-09-01T22:46:59.709Z",
+      "updatedAt": "2025-09-01T22:46:59.710Z"
+    },
+    {
+      "workflowName": "test-complete",
+      "nodeId": "ai1",
+      "nodeName": "Analyze",
+      "nodeType": "prompt",
+      "subType": "openai",
+      "createdAt": "2025-09-01T22:46:59.710Z",
+      "updatedAt": "2025-09-01T22:46:59.710Z"
+    }
+  ]
+}
