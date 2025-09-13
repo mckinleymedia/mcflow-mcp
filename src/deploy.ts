@@ -71,15 +71,26 @@ class WorkflowDeployer {
   }
   
   private async deployToLocal(workflow: any, workflowPath: string): Promise<void> {
-    const tempFile = `/tmp/workflow_${Date.now()}.json`;
+    // Always use a temp file with the compiled workflow
+    const tempFile = `/tmp/compiled_workflow_${Date.now()}.json`;
     await fs.writeFile(tempFile, JSON.stringify(workflow, null, 2));
     
     try {
+      // Try Docker deployment first
       execSync(`docker cp ${tempFile} ${this.config.dockerContainer}:/tmp/workflow.json`);
       execSync(`docker exec ${this.config.dockerContainer} n8n import:workflow --input=/tmp/workflow.json`);
+      console.log('  ✓ Deployed via Docker container');
     } catch (error) {
-      console.log('Docker deployment failed, trying direct n8n CLI...');
-      execSync(`n8n import:workflow --input=${workflowPath}`);
+      // Fall back to direct n8n CLI with the COMPILED workflow
+      console.log('  → Docker deployment failed, trying direct n8n CLI...');
+      try {
+        // Note: Don't use --separate for single file imports
+        execSync(`n8n import:workflow --input=${tempFile}`);
+        console.log('  ✓ Deployed via n8n CLI');
+      } catch (cliError) {
+        console.error('  ❌ Both Docker and CLI deployment failed');
+        throw cliError;
+      }
     } finally {
       await fs.unlink(tempFile).catch(() => {});
     }

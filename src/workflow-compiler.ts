@@ -29,8 +29,12 @@ interface WorkflowNode {
 }
 
 interface Workflow {
+  id?: string;
   name: string;
   nodes: WorkflowNode[];
+  active?: boolean;
+  settings?: any;
+  connections?: any;
   [key: string]: any;
 }
 
@@ -52,6 +56,25 @@ export class WorkflowCompiler {
     // Read the workflow file
     const workflowContent = await fs.readFile(workflowPath, 'utf-8');
     const workflow: Workflow = JSON.parse(workflowContent);
+    
+    // Generate a stable ID based on the workflow name if not present
+    // This ensures the same workflow always gets the same ID
+    if (!workflow.id) {
+      // Create a stable ID from the workflow name (sanitized)
+      const baseName = path.basename(workflowPath, '.json');
+      workflow.id = baseName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    }
+    
+    // Ensure workflow has required fields for n8n
+    if (workflow.active === undefined) {
+      workflow.active = false; // Default to inactive
+    }
+    if (!workflow.settings) {
+      workflow.settings = { executionOrder: 'v1' };
+    }
+    if (!workflow.connections) {
+      workflow.connections = {};
+    }
     
     // Always process nodes to ensure external files are injected
     // This ensures any changes to external files are picked up
@@ -130,11 +153,27 @@ export class WorkflowCompiler {
     
     const promptFileName = node.parameters.nodeContent.prompt;
     const promptsDir = path.join(this.workflowsPath, 'workflows', 'nodes', 'prompts');
-    const promptFilePath = path.join(promptsDir, `${promptFileName}.md`);
+    
+    // Try .md first, then .txt
+    let promptFilePath = path.join(promptsDir, `${promptFileName}.md`);
+    let promptContent: string;
     
     try {
-      // Read the prompt content from markdown file
-      let promptContent = await fs.readFile(promptFilePath, 'utf-8');
+      // Try to read as .md file first
+      promptContent = await fs.readFile(promptFilePath, 'utf-8');
+    } catch {
+      // If .md doesn't exist, try .txt
+      promptFilePath = path.join(promptsDir, `${promptFileName}.txt`);
+      try {
+        promptContent = await fs.readFile(promptFilePath, 'utf-8');
+      } catch (error) {
+        console.warn(`  ⚠️ Prompt file not found: ${promptFileName}.md or ${promptFileName}.txt`);
+        console.warn(`     Node '${node.name}' will be deployed as-is`);
+        return false;
+      }
+    }
+    
+    try {
       
       // Ensure prompt content has n8n expression syntax if needed
       if (!promptContent.startsWith('=')) {
@@ -156,7 +195,8 @@ export class WorkflowCompiler {
             }
           };
           delete node.parameters.nodeContent;
-          console.log(`  ✅ Injected prompt (LangChain) from: ${promptFileName}.md`);
+          const ext = promptFilePath.endsWith('.md') ? '.md' : '.txt';
+          console.log(`  ✅ Injected prompt (LangChain) from: ${promptFileName}${ext}`);
           break;
           
         case '@n8n/n8n-nodes-langchain.agent':
@@ -167,7 +207,8 @@ export class WorkflowCompiler {
             systemMessage: promptContent
           };
           delete node.parameters.nodeContent;
-          console.log(`  ✅ Injected prompt (Agent) from: ${promptFileName}.md`);
+          const ext2 = promptFilePath.endsWith('.md') ? '.md' : '.txt';
+          console.log(`  ✅ Injected prompt (Agent) from: ${promptFileName}${ext2}`);
           break;
           
         case 'n8n-nodes-base.openAi':
@@ -180,7 +221,8 @@ export class WorkflowCompiler {
             prompt: promptContent
           };
           delete node.parameters.nodeContent;
-          console.log(`  ✅ Injected prompt from: ${promptFileName}.md`);
+          const ext3 = promptFilePath.endsWith('.md') ? '.md' : '.txt';
+          console.log(`  ✅ Injected prompt from: ${promptFileName}${ext3}`);
           break;
       }
       
@@ -202,8 +244,7 @@ export class WorkflowCompiler {
       
       return true;
     } catch (error) {
-      console.warn(`  ⚠️ Prompt file not found: ${promptFilePath}`);
-      console.warn(`     Node '${node.name}' will be deployed as-is`);
+      console.warn(`  ⚠️ Error processing prompt: ${error}`);
       return false;
     }
   }

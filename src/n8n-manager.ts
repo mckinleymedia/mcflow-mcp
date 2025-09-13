@@ -4,6 +4,7 @@ import path from 'path';
 import fs from 'fs/promises';
 import { ChangeTracker } from './change-tracker.js';
 import { NodeManager } from './node-manager.js';
+import { WorkflowCompiler } from './workflow-compiler.js';
 
 const execAsync = promisify(exec);
 
@@ -11,11 +12,13 @@ export class N8nManager {
   private workflowsPath: string;
   private changeTracker: ChangeTracker;
   private nodeManager: NodeManager;
+  private compiler: WorkflowCompiler;
 
   constructor(workflowsPath: string) {
     this.workflowsPath = workflowsPath;
     this.changeTracker = new ChangeTracker(workflowsPath);
     this.nodeManager = new NodeManager(workflowsPath);
+    this.compiler = new WorkflowCompiler(workflowsPath);
     // Initialize managers
     this.changeTracker.initialize().catch(console.error);
     this.nodeManager.initialize().catch(console.error);
@@ -123,13 +126,16 @@ export class N8nManager {
       const tempPath = fullPath + '.deploy.tmp';
       
       try {
-        // Inject node content before deployment
-        const { injected, workflow } = await this.nodeManager.injectNodes(fullPath);
+        // Compile the workflow (inject external code/prompts)
+        const workflow = await this.compiler.compileWorkflow(fullPath);
         
         // Ensure workflow has required fields for n8n
         if (!workflow.active && workflow.active !== false) {
           workflow.active = false; // Default to inactive
         }
+        
+        // Track which nodes had content injected (for reporting)
+        const injected: string[] = [];
         if (!workflow.settings) {
           workflow.settings = { executionOrder: 'v1' };
         }
@@ -155,10 +161,10 @@ export class N8nManager {
         let emptyCodeNodes = [];
         if (workflow.nodes) {
           for (const node of workflow.nodes) {
-            if (node.type === 'n8n-nodes-base.code') {
+            if (node.type === 'n8n-nodes-base.code' && node.parameters) {
               if ((!node.parameters.jsCode || node.parameters.jsCode === '') && 
                   (!node.parameters.pythonCode || node.parameters.pythonCode === '')) {
-                emptyCodeNodes.push(node.name);
+                emptyCodeNodes.push(node.name || 'unnamed');
               }
             }
           }
@@ -171,16 +177,12 @@ export class N8nManager {
         }
         
         // Write temporary workflow with injected content
-        // n8n expects workflows to be in an array format
-        const workflowArray = Array.isArray(workflow) ? workflow : [workflow];
-        await fs.writeFile(tempPath, JSON.stringify(workflowArray, null, 2));
+        // n8n expects a single workflow object (not in an array) for file import
+        await fs.writeFile(tempPath, JSON.stringify(workflow, null, 2));
         
         // Build command using temp file
+        // Note: --separate flag is only for directory imports, not single files
         let command = `n8n import:workflow --input="${tempPath}"`;
-        
-        if (options.separate) {
-          command += ' --separate';
-        }
         
         if (options.activate) {
           command += ' --activate';
@@ -251,17 +253,17 @@ export class N8nManager {
         const tempPath = fullPath + '.deploy.tmp';
         
         try {
-          // Inject code nodes before deployment
-          const { injected, workflow } = await this.nodeManager.injectNodes(fullPath);
+          // Compile the workflow (inject external code/prompts)
+          const workflow = await this.compiler.compileWorkflow(fullPath);
           
           // Validate that code nodes have content
           let emptyCodeNodes = [];
           if (workflow.nodes) {
             for (const node of workflow.nodes) {
-              if (node.type === 'n8n-nodes-base.code') {
+              if (node.type === 'n8n-nodes-base.code' && node.parameters) {
                 if ((!node.parameters.jsCode || node.parameters.jsCode === '') && 
                     (!node.parameters.pythonCode || node.parameters.pythonCode === '')) {
-                  emptyCodeNodes.push(node.name);
+                  emptyCodeNodes.push(node.name || 'unnamed');
                 }
               }
             }
@@ -271,17 +273,15 @@ export class N8nManager {
             console.error(`⚠️  WARNING in ${path.basename(file)}: Empty code nodes: ${emptyCodeNodes.join(', ')}`);
           }
           
+          // Track which nodes had content injected (for reporting)
+          const injected: string[] = [];
+          
           // Write temporary workflow with injected code
-          // n8n expects workflows to be in an array format
-          const workflowArray = Array.isArray(workflow) ? workflow : [workflow];
-          await fs.writeFile(tempPath, JSON.stringify(workflowArray, null, 2));
+          // n8n expects a single workflow object (not in an array) for file import
+          await fs.writeFile(tempPath, JSON.stringify(workflow, null, 2));
           
           // Build command for this workflow using temp file
           let command = `n8n import:workflow --input="${tempPath}"`;
-        
-        if (options.separate) {
-          command += ' --separate';
-        }
         
         if (options.activate) {
           command += ' --activate';
