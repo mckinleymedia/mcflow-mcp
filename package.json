@@ -20,7 +20,9 @@
     "clean": "rm -rf dist",
     "prepare": "npm run build",
     "setup": "./scripts/setup-agent.sh",
-    "test": "MCP_MODE=stdio node dist/index.js --test"
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:mcp": "MCP_MODE=stdio node dist/index.js --test"
   },
   "keywords": [
     "mcp",
@@ -41,7 +43,9 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
+    "@vitest/ui": "^3.2.4",
     "tsx": "^4.16.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "vitest": "^3.2.4"
   }
 }

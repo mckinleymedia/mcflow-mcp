@@ -1,5 +1,8 @@
 {
+  "id": "ai-assistant-example",
   "name": "AI Assistant Example",
+  "description": "Test compilation at 9:17 AM - Verifying description field preservation",
+  "active": false,
   "nodes": [
     {
       "parameters": {
@@ -15,7 +18,7 @@
           ]
         }
       },
-      "name": "Webhook Trigger",
+      "name": "Webhook Trigger UPDATED NOW",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 1.1,
       "position": [250, 300]

@@ -1,13 +1,13 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { detectWorkflowStructure, WorkflowStructure } from './workflow-finder.js';
-import { WorkflowDocumenter } from './workflow-documenter.js';
-import { WorkflowInitializer } from './workflow-initializer.js';
-import { NodeValidator } from './node-validator.js';
-import { WorkflowFormatter } from './workflow-formatter.js';
-import { ChangeTracker } from './change-tracker.js';
+import { detectWorkflowStructure, WorkflowStructure } from './finder.js';
+import { WorkflowDocumenter } from './documenter.js';
+import { WorkflowInitializer } from './initializer.js';
+import { NodeValidator } from '../nodes/validator.js';
+import { WorkflowFormatter } from './formatter.js';
+import { ChangeTracker } from '../utils/change-tracker.js';
 
-export { NodeValidator } from './node-validator.js';
+export { NodeValidator } from '../nodes/validator.js';
 
 export class WorkflowManager {
   private structure: WorkflowStructure;
@@ -84,6 +84,12 @@ export class WorkflowManager {
    */
   async createWorkflow(name: string, workflow: any, project?: string): Promise<any> {
     try {
+      // Enforce dash naming convention
+      if (name.includes('_')) {
+        name = name.replace(/_/g, '-');
+        console.log(`📝 Converting underscores to dashes in filename: ${name}`);
+      }
+      
       // Initialize workflows structure if needed (first time)
       const wasInitialized = await this.initializer.initialize();
       
@@ -92,17 +98,17 @@ export class WorkflowManager {
 
       // Determine where to create the workflow based on structure
       if (this.structure.type === 'simple' || !project) {
-        // Simple structure: use ./workflows/flows/
-        targetPath = path.join(this.workflowsPath, 'workflows', 'flows');
-        relativePath = `workflows/flows/${name}.json`;
+        // Simple structure: use ./flows/ (workflowsPath already points to workflows dir)
+        targetPath = path.join(this.workflowsPath, 'flows');
+        relativePath = `flows/${name}.json`;
       } else if (this.structure.type === 'multi-project' && project) {
         // Multi-project structure with project specified
         targetPath = path.join(this.workflowsPath, project, 'workflows');
         relativePath = `${project}/workflows/${name}.json`;
       } else {
         // Unknown structure: default to simple with flows
-        targetPath = path.join(this.workflowsPath, 'workflows', 'flows');
-        relativePath = `workflows/flows/${name}.json`;
+        targetPath = path.join(this.workflowsPath, 'flows');
+        relativePath = `flows/${name}.json`;
       }
 
       // Create directory if it doesn't exist
@@ -116,11 +122,8 @@ export class WorkflowManager {
         workflow.name = finalName;
       }
       
-      // Validate the workflow before saving
-      const validation = await this.validator.validateWorkflow(path.join(targetPath, `${finalName}.json.tmp`));
-      
-      // Write temporary file for validation
-      const tempPath = path.join(targetPath, `${finalName}.json.tmp`);
+      // Write temporary file for validation in /tmp
+      const tempPath = `/tmp/mcflow_validate_${Date.now()}_${finalName}.json`;
       await fs.writeFile(tempPath, JSON.stringify(workflow, null, 2));
       
       // Validate and auto-fix if needed

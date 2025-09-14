@@ -1,0 +1,129 @@
+{
+  "name": "pet-image-combiner",
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "get-dog-image",
+      "name": "Get Dog Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        200
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://dog.ceo/api/breeds/image/random",
+        "options": {}
+      }
+    },
+    {
+      "id": "get-cat-image",
+      "name": "Get Cat Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        500,
+        400
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.thecatapi.com/v1/images/search",
+        "options": {}
+      }
+    },
+    {
+      "id": "combine-results",
+      "name": "Combine Pet Images",
+      "type": "n8n-nodes-base.mergeV3",
+      "typeVersion": 1,
+      "position": [
+        750,
+        300
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      }
+    },
+    {
+      "id": "format-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        300
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Extract the image URLs from both APIs\nconst items = $input.all();\n\nconst dogImageUrl = items[0]?.json?.message || 'No dog image found';\nconst catImageUrl = items[0]?.json2?.[0]?.url || items[1]?.json?.[0]?.url || 'No cat image found';\n\nreturn [{\n  json: {\n    dog: {\n      imageUrl: dogImageUrl,\n      source: 'dog.ceo API'\n    },\n    cat: {\n      imageUrl: catImageUrl,\n      source: 'thecatapi.com'\n    },\n    timestamp: new Date().toISOString(),\n    message: 'Successfully fetched both pet images!'\n  }\n}];"
+      }
+    }
+  ],
+  "connections": {
+    "manual-trigger": {
+      "main": [
+        [
+          {
+            "node": "get-dog-image",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "get-cat-image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-dog-image": {
+      "main": [
+        [
+          {
+            "node": "combine-results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get-cat-image": {
+      "main": [
+        [
+          {
+            "node": "combine-results",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "combine-results": {
+      "main": [
+        [
+          {
+            "node": "format-output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

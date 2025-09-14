@@ -12,7 +12,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { execSync } from 'child_process';
 import { LLMValidator } from './llm-validator.js';
-import { BestNodeSelector } from './best-node-selector.js';
+import { BestNodeSelector } from './selector.js';
 
 interface NodeIssue {
   nodeId: string;

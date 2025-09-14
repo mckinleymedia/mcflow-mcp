@@ -2,12 +2,11 @@
 import { execSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { WorkflowCompiler } from './workflow-compiler.js';
+import { WorkflowCompiler } from '../workflows/compiler.js';
 
 interface DeployConfig {
   n8nUrl?: string;
   n8nApiKey?: string;
-  dockerContainer?: string;
   useCloud?: boolean;
   workflowsPath?: string;
 }
@@ -20,7 +19,6 @@ class WorkflowDeployer {
     this.config = {
       n8nUrl: config.n8nUrl || process.env.N8N_API_URL || 'http://localhost:5678',
       n8nApiKey: config.n8nApiKey || process.env.N8N_API_KEY,
-      dockerContainer: config.dockerContainer || 'n8n',
       useCloud: config.useCloud || false,
       workflowsPath: config.workflowsPath || process.env.WORKFLOWS_PATH || process.cwd(),
     };
@@ -76,21 +74,27 @@ class WorkflowDeployer {
     await fs.writeFile(tempFile, JSON.stringify(workflow, null, 2));
     
     try {
-      // Try Docker deployment first
-      execSync(`docker cp ${tempFile} ${this.config.dockerContainer}:/tmp/workflow.json`);
-      execSync(`docker exec ${this.config.dockerContainer} n8n import:workflow --input=/tmp/workflow.json`);
-      console.log('  ✓ Deployed via Docker container');
-    } catch (error) {
-      // Fall back to direct n8n CLI with the COMPILED workflow
-      console.log('  → Docker deployment failed, trying direct n8n CLI...');
-      try {
-        // Note: Don't use --separate for single file imports
-        execSync(`n8n import:workflow --input=${tempFile}`);
+      // Skip Docker attempt and go straight to n8n CLI
+      // Docker deployment tends to hang if container isn't running
+      console.log('  → Deploying via n8n CLI...');
+      
+      // Note: Don't use --separate for single file imports
+      const result = execSync(`n8n import:workflow --input=${tempFile}`, {
+        encoding: 'utf-8',
+        timeout: 30000, // 30 second timeout
+      });
+      
+      // Check if result indicates success
+      if (result.includes('Successfully imported') || result.includes('Importing')) {
         console.log('  ✓ Deployed via n8n CLI');
-      } catch (cliError) {
-        console.error('  ❌ Both Docker and CLI deployment failed');
-        throw cliError;
+      } else {
+        console.log('  ✓ Deployed via n8n CLI (no explicit success message)');
       }
+    } catch (cliError: any) {
+      console.error('  ❌ n8n CLI deployment failed:', cliError.message);
+      if (cliError.stdout) console.error('  stdout:', cliError.stdout);
+      if (cliError.stderr) console.error('  stderr:', cliError.stderr);
+      throw cliError;
     } finally {
       await fs.unlink(tempFile).catch(() => {});
     }

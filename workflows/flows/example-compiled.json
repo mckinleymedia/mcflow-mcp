@@ -1,5 +1,8 @@
 {
+  "id": "example-compiled",
   "name": "Example Compiled Workflow",
+  "description": "Updated at 4:46 PM - With external code compilation",
+  "active": false,
   "nodes": [
     {
       "parameters": {

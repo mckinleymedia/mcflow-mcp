@@ -2,9 +2,9 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs/promises';
-import { ChangeTracker } from './change-tracker.js';
-import { NodeManager } from './node-manager.js';
-import { WorkflowCompiler } from './workflow-compiler.js';
+import { ChangeTracker } from '../utils/change-tracker.js';
+import { NodeManager } from '../nodes/manager.js';
+import { WorkflowCompiler } from '../workflows/compiler.js';
 
 const execAsync = promisify(exec);
 
@@ -39,6 +39,8 @@ export class N8nManager {
    * Check if stderr contains actual errors (not warnings/deprecations)
    */
   private hasRealError(stderr: string, stdout?: string): boolean {
+    console.error(`[hasRealError] Checking stderr: ${stderr?.substring(0, 200)}`);
+    console.error(`[hasRealError] Checking stdout: ${stdout?.substring(0, 200)}`);
     if (!stderr) return false;
     
     // Check if stdout indicates success
@@ -80,7 +82,7 @@ export class N8nManager {
   }
 
   /**
-   * Deploy a workflow to n8n
+   * Deploy a workflow to n8n (handles both create and update)
    */
   async importWorkflow(workflowPath: string, options: {
     separate?: boolean;
@@ -106,34 +108,38 @@ export class N8nManager {
       }
       // Handle different path formats
       let fullPath: string;
-      
+
       // If the path starts with 'workflows/', remove it to avoid doubling
       if (workflowPath.startsWith('workflows/')) {
         workflowPath = workflowPath.substring('workflows/'.length);
       }
-      
+
       // If it's an absolute path, use it directly
       if (path.isAbsolute(workflowPath)) {
         fullPath = workflowPath;
       } else {
         fullPath = path.join(this.workflowsPath, workflowPath);
       }
-      
+
       // Verify file exists
       await fs.access(fullPath);
-      
-      // Create temporary file with injected content
-      const tempPath = fullPath + '.deploy.tmp';
-      
+
+      // Create temporary file with injected content in /tmp
+      const tempPath = `/tmp/mcflow_deploy_${Date.now()}_${path.basename(workflowPath)}`;
+
       try {
         // Compile the workflow (inject external code/prompts)
         const workflow = await this.compiler.compileWorkflow(fullPath);
-        
+
+        // Save compiled workflow to dist directory
+        const fileName = path.basename(workflowPath);
+        await this.compiler.saveCompiledWorkflow(fileName, workflow);
+
         // Ensure workflow has required fields for n8n
         if (!workflow.active && workflow.active !== false) {
           workflow.active = false; // Default to inactive
         }
-        
+
         // Track which nodes had content injected (for reporting)
         const injected: string[] = [];
         if (!workflow.settings) {
@@ -142,58 +148,58 @@ export class N8nManager {
         if (!workflow.connections) {
           workflow.connections = {};
         }
-        
-        // IMPORTANT: Preserve the workflow ID if it exists
-        // This ensures updates instead of creating duplicates
-        // If no ID exists, n8n will create a new workflow
+
+        // IMPORTANT: Log whether this is an update or create
+        const isUpdate = !!workflow.id;
         if (workflow.id) {
           console.error(`Updating existing workflow with ID: ${workflow.id}`);
         } else {
           console.error('No workflow ID found - n8n will create a new workflow');
         }
-        
+
         // Log injection details
         if (injected.length > 0) {
           console.error(`Injecting content for nodes: ${injected.join(', ')}`);
         }
-        
+
         // Validate that code nodes have content
         let emptyCodeNodes = [];
         if (workflow.nodes) {
           for (const node of workflow.nodes) {
             if (node.type === 'n8n-nodes-base.code' && node.parameters) {
-              if ((!node.parameters.jsCode || node.parameters.jsCode === '') && 
+              if ((!node.parameters.jsCode || node.parameters.jsCode === '') &&
                   (!node.parameters.pythonCode || node.parameters.pythonCode === '')) {
                 emptyCodeNodes.push(node.name || 'unnamed');
               }
             }
           }
         }
-        
+
         if (emptyCodeNodes.length > 0) {
           console.error(`⚠️  WARNING: The following code nodes have empty content: ${emptyCodeNodes.join(', ')}`);
           console.error('This may cause nodes to appear disconnected in n8n.');
           console.error('Make sure to use "mcflow deploy" instead of deploying the workflow file directly.');
         }
-        
+
         // Write temporary workflow with injected content
         // n8n expects a single workflow object (not in an array) for file import
         await fs.writeFile(tempPath, JSON.stringify(workflow, null, 2));
-        
+
         // Build command using temp file
-        // Note: --separate flag is only for directory imports, not single files
-        let command = `n8n import:workflow --input="${tempPath}"`;
-        
+        // Use --force flag to update existing workflows
+        let command = `n8n import:workflow --input="${tempPath}" --force`;
+
         if (options.activate) {
           command += ' --activate';
         }
 
         console.error(`Executing: ${command}`);
         const { stdout, stderr } = await execAsync(command);
-        
+
         // Clean up temp file
         await fs.unlink(tempPath).catch(() => {});
-        
+
+        // Check for errors
         if (this.hasRealError(stderr, stdout)) {
           throw new Error(stderr);
         }
@@ -202,7 +208,7 @@ export class N8nManager {
           content: [
             {
               type: 'text',
-              text: `✅ Workflow deployed successfully!\n\n` +
+              text: `✅ Workflow ${isUpdate ? 'updated' : 'deployed'} successfully!\n\n` +
                     `📁 File: ${workflowPath}\n` +
                     `${options.activate ? '▶️ Status: Activated\n' : '⏸️ Status: Inactive\n'}` +
                     `${injected.length > 0 ? `💉 Injected nodes: ${injected.join(', ')}\n` : ''}` +
@@ -249,8 +255,8 @@ export class N8nManager {
       const deployPromises = changedFiles.map(async (file) => {
         const fullPath = path.join(this.workflowsPath, file);
         
-        // Create a temporary file with injected code
-        const tempPath = fullPath + '.deploy.tmp';
+        // Create a temporary file with injected code in /tmp
+        const tempPath = `/tmp/mcflow_deploy_${Date.now()}_${path.basename(file)}`;
         
         try {
           // Compile the workflow (inject external code/prompts)
@@ -281,8 +287,9 @@ export class N8nManager {
           await fs.writeFile(tempPath, JSON.stringify(workflow, null, 2));
           
           // Build command for this workflow using temp file
-          let command = `n8n import:workflow --input="${tempPath}"`;
-        
+          // Use --force flag to update existing workflows
+          let command = `n8n import:workflow --input="${tempPath}" --force`;
+
         if (options.activate) {
           command += ' --activate';
         }
@@ -374,7 +381,6 @@ export class N8nManager {
       // Find the flows directory intelligently
       let flowsPath: string = '';
       const possiblePaths = [
-        path.join(this.workflowsPath, 'workflows', 'flows'),
         path.join(this.workflowsPath, 'flows'),
         this.workflowsPath
       ];
@@ -417,31 +423,64 @@ export class N8nManager {
       const deployPromises = workflowFiles.map(async (file) => {
         const fullPath = path.join(flowsPath, file);
         
-        // Build command for this workflow
-        let command = `n8n import:workflow --input="${fullPath}"`;
-        
-        if (options.separate) {
-          command += ' --separate';
-        }
-        
-        if (options.activate) {
-          command += ' --activate';
-        }
+        // Create a temporary file for the compiled workflow
+        // Use a simpler name to avoid path issues
+        const tempFileName = `deploy_${Date.now()}_${file.replace(/[^a-z0-9.-]/gi, '_')}`;
+        const tempPath = path.join('/tmp', tempFileName);
         
         try {
+          // Compile the workflow (inject external code/prompts)
+          console.error(`Compiling: ${fullPath}`);
+          const workflow = await this.compiler.compileWorkflow(fullPath);
+          
+          // Write compiled workflow to temp file
+          await fs.writeFile(tempPath, JSON.stringify(workflow, null, 2));
+          console.error(`Written to temp: ${tempPath}`);
+          
+          // Build command for this workflow using the compiled temp file
+          // Use --force flag to update existing workflows
+          let command = `n8n import:workflow --input="${tempPath}" --force`;
+
+          if (options.activate) {
+            command += ' --activate';
+          }
+          
+          console.error(`Executing command for ${file}: ${command}`);
           const { stdout, stderr } = await execAsync(command);
           
+          // Clean up temp file
+          await fs.unlink(tempPath).catch(() => {});
+          
+          // Log raw output for debugging
+          console.error(`[${file}] stdout: ${stdout}`);
+          console.error(`[${file}] stderr: ${stderr}`);
+          
           if (this.hasRealError(stderr, stdout)) {
+            console.error(`[${file}] Detected real error in deployment`);
             return { file, status: 'failed', error: stderr };
           }
           
-          // Log success with any warnings
-          if (stderr) {
-            console.error(`Deployed ${file} with warnings: ${stderr}`);
+          // Check for success indicators
+          const isSuccess = stdout?.includes('Successfully imported') || 
+                           stderr?.includes('Successfully imported') ||
+                           stderr?.includes('Importing');
+          
+          if (!isSuccess && !stdout && !stderr) {
+            console.error(`[${file}] No output from import command - possible silent failure`);
+            return { file, status: 'failed', error: 'No output from import command' };
           }
           
-          return { file, status: 'success', output: stdout || stderr };
+          // Log success with any warnings
+          if (stderr && !this.hasRealError(stderr, stdout)) {
+            console.error(`[${file}] Deployed with warnings: ${stderr}`);
+          } else {
+            console.error(`[${file}] Deployed successfully`);
+          }
+          
+          return { file, status: 'success', output: stdout || stderr || 'Import completed' };
         } catch (error: any) {
+          // Clean up temp file on error
+          await fs.unlink(tempPath).catch(() => {});
           console.error(`Failed to deploy ${file}: ${error.message}`);
           return { file, status: 'failed', error: error.message };
         }
@@ -453,6 +492,12 @@ export class N8nManager {
       // Format results
       const successful = results.filter(r => r.status === 'success');
       const failed = results.filter(r => r.status === 'failed');
+      
+      console.error(`\n=== Deployment Summary ===`);
+      console.error(`Total workflows: ${workflowFiles.length}`);
+      console.error(`Successful: ${successful.length}`);
+      console.error(`Failed: ${failed.length}`);
+      console.error(`Results:`, JSON.stringify(results, null, 2));
       
       let output = `🚀 Deployed ${successful.length}/${workflowFiles.length} workflows\n\n`;
       
@@ -532,7 +577,7 @@ export class N8nManager {
         
         // Save each workflow separately, preserving ID
         for (const workflow of workflows) {
-          const fileName = `${workflow.name.toLowerCase().replace(/\s+/g, '_')}.json`;
+          const fileName = `${workflow.name.toLowerCase().replace(/\s+/g, '-')}.json`;
           const filePath = path.join(outputDir, fileName);
           
           // Store the full workflow object with ID
@@ -570,7 +615,7 @@ export class N8nManager {
         const workflow = Array.isArray(workflows) ? workflows[0] : workflows;
         
         // Save with the workflow's name, preserving ID
-        const fileName = `${workflow.name.toLowerCase().replace(/\s+/g, '_')}.json`;
+        const fileName = `${workflow.name.toLowerCase().replace(/\s+/g, '-')}.json`;
         const filePath = path.join(outputDir, fileName);
         
         // Store the full workflow object with ID

@@ -45,8 +45,8 @@ export class WorkflowCompiler {
 
   constructor(workflowsPath: string) {
     this.workflowsPath = workflowsPath;
-    this.nodesCodePath = path.join(workflowsPath, 'workflows', 'nodes', 'code');
-    this.distPath = path.join(workflowsPath, 'workflows', 'dist');
+    this.nodesCodePath = path.join(workflowsPath, 'nodes', 'code');
+    this.distPath = path.join(workflowsPath, 'dist');
   }
 
   /**
@@ -74,6 +74,12 @@ export class WorkflowCompiler {
     }
     if (!workflow.connections) {
       workflow.connections = {};
+    }
+    
+    // Add or update timestamp to force n8n to recognize the update
+    workflow.updatedAt = new Date().toISOString();
+    if (!workflow.createdAt) {
+      workflow.createdAt = workflow.updatedAt;
     }
     
     // Always process nodes to ensure external files are injected
@@ -152,7 +158,7 @@ export class WorkflowCompiler {
     if (!node.parameters?.nodeContent?.prompt) return false;
     
     const promptFileName = node.parameters.nodeContent.prompt;
-    const promptsDir = path.join(this.workflowsPath, 'workflows', 'nodes', 'prompts');
+    const promptsDir = path.join(this.workflowsPath, 'nodes', 'prompts');
     
     // Try .md first, then .txt
     let promptFilePath = path.join(promptsDir, `${promptFileName}.md`);
@@ -257,7 +263,7 @@ export class WorkflowCompiler {
     if (node.parameters?.nodeContent?.[codeType]) {
       const codeFileName = node.parameters.nodeContent[codeType];
       const extension = fileExt || `.${folderName}`;
-      const codeDir = path.join(this.workflowsPath, 'workflows', 'nodes', folderName);
+      const codeDir = path.join(this.workflowsPath, 'nodes', folderName);
       const codeFilePath = path.join(codeDir, `${codeFileName}${extension}`);
       
       try {
@@ -280,7 +286,7 @@ export class WorkflowCompiler {
    * Compile all workflows in a directory
    */
   async compileAll(outputToFiles: boolean = false): Promise<Map<string, Workflow>> {
-    const flowsDir = path.join(this.workflowsPath, 'workflows', 'flows');
+    const flowsDir = path.join(this.workflowsPath, 'flows');
     const compiledWorkflows = new Map<string, Workflow>();
     
     try {
@@ -310,7 +316,7 @@ export class WorkflowCompiler {
   /**
    * Save compiled workflow to dist directory for debugging
    */
-  private async saveCompiledWorkflow(fileName: string, workflow: Workflow): Promise<void> {
+  async saveCompiledWorkflow(fileName: string, workflow: Workflow): Promise<void> {
     // Ensure dist directory exists
     await fs.mkdir(this.distPath, { recursive: true });
     
@@ -342,7 +348,7 @@ export class WorkflowCompiler {
     if (node.parameters?.jsCode && node.type === 'n8n-nodes-base.code') {
       const nodeName = this.sanitizeNodeName(node.name || 'unnamed');
       const fileName = `${workflowName}_${nodeName}`;
-      const codeDir = path.join(this.workflowsPath, 'workflows', 'nodes', 'code');
+      const codeDir = path.join(this.workflowsPath, 'nodes', 'code');
       
       // Ensure directory exists
       await fs.mkdir(codeDir, { recursive: true });
@@ -397,7 +403,7 @@ export class WorkflowCompiler {
     if (node.parameters?.[codeType]) {
       const nodeName = this.sanitizeNodeName(node.name || 'unnamed');
       const fileName = `${workflowName}_${nodeName}`;
-      const codeDir = path.join(this.workflowsPath, 'workflows', 'nodes', folderName);
+      const codeDir = path.join(this.workflowsPath, 'nodes', folderName);
       
       await fs.mkdir(codeDir, { recursive: true });
       
@@ -420,7 +426,7 @@ export class WorkflowCompiler {
     
     const nodeName = this.sanitizeNodeName(node.name || 'unnamed');
     const fileName = `${workflowName}_${nodeName}`;
-    const promptsDir = path.join(this.workflowsPath, 'workflows', 'nodes', 'prompts');
+    const promptsDir = path.join(this.workflowsPath, 'nodes', 'prompts');
     
     await fs.mkdir(promptsDir, { recursive: true });
     
@@ -452,7 +458,7 @@ export class WorkflowCompiler {
     
     const nodeName = this.sanitizeNodeName(node.name || 'unnamed');
     const fileName = `${workflowName}_${nodeName}`;
-    const promptsDir = path.join(this.workflowsPath, 'workflows', 'nodes', 'prompts');
+    const promptsDir = path.join(this.workflowsPath, 'nodes', 'prompts');
     
     await fs.mkdir(promptsDir, { recursive: true });
     

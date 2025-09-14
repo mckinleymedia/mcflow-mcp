@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import { WorkflowDeployer } from './deploy.js';
+import { WorkflowDeployer } from './n8n/deploy.js';
 import path from 'path';
 
 const program = new Command();

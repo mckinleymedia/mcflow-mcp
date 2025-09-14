@@ -2,6 +2,10 @@
 
 McFlow is a Model Context Protocol (MCP) server that provides enhanced context and automation capabilities for creating and managing n8n workflows. It streamlines workflow development with code extraction, automatic documentation, and intelligent project organization.
 
+## ⚠️ CRITICAL: Code Must Be In External Files
+
+**NEVER put code directly in workflow JSON files!** McFlow uses a compilation system that requires all code to be in external files. See [AI Instructions](docs/ai-instructions.md) for mandatory guidelines.
+
 ## Features
 
 - **Workflow Management**: Create, read, update, and deploy n8n workflows
@@ -108,12 +112,30 @@ mcflow generate --template webhook-api --name "api-handler"
 
 ### Code Extraction & Compilation System
 
+**⚠️ IMPORTANT**: Code MUST be in external files, NEVER in workflow JSON!
+
 McFlow separates code from workflow JSON for better development:
 
 1. **Extract**: Pull code/SQL/prompts from nodes into `workflows/nodes/` directory
 2. **Edit**: Use your IDE with full syntax highlighting and tooling
 3. **Compile**: Process workflows to inject code from external files
 4. **Deploy**: Automatically compile and deploy to n8n
+
+**Workflow JSON Structure (REQUIRED)**:
+```json
+{
+  "parameters": {
+    "nodeContent": {
+      "jsCode": "workflow_name_node_purpose"  // Reference ONLY, no actual code!
+    }
+  }
+}
+```
+
+**External File Location**:
+```
+workflows/nodes/code/workflow_name_node_purpose.js  // Actual code goes here
+```
 
 ### Project Structure
 
