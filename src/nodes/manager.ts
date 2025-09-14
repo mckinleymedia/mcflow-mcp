@@ -51,13 +51,10 @@ export class NodeManager {
    * Initialize the nodes directory structure
    */
   async initialize(): Promise<void> {
-    // Create subdirectories for different node types
-    const dirs = ['code', 'prompts', 'sql', 'templates', 'shared'];
-    for (const dir of dirs) {
-      await fs.mkdir(path.join(this.nodesBasePath, dir), { recursive: true });
-    }
-    
-    // Create README
+    // Don't create directories preemptively - they'll be created as needed
+    // when extracting nodes. This keeps the project cleaner.
+
+    // Only create README if the nodes directory exists
     const readmePath = path.join(this.nodesBasePath, 'README.md');
     try {
       await fs.access(readmePath);
@@ -78,8 +75,7 @@ nodes/
 │       └── node-name.py
 ├── prompts/             # LLM prompts
 │   └── workflow-name/
-│       ├── node-name.md
-│       └── node-name.txt
+│       └── node-name.md
 ├── sql/                 # SQL queries
 │   └── workflow-name/
 │       └── query-name.sql
@@ -195,10 +191,12 @@ nodes/
     const extension = language === 'python' ? 'py' : 'js';
     const fileName = `${safeNodeName}.${extension}`;
     const folderPath = path.join(this.nodesBasePath, 'code', workflowName);
-    await fs.mkdir(folderPath, { recursive: true });
-    
+
     const filePath = path.join(folderPath, fileName);
-    
+
+    // Ensure directory exists (created only when needed)
+    await fs.mkdir(folderPath, { recursive: true });
+
     // Write code with header
     const header = this.generateHeader('code', node.name, workflowName, language);
     await fs.writeFile(filePath, header + code);
@@ -250,9 +248,11 @@ nodes/
     const safeNodeName = this.sanitizeFilename(node.name);
     const fileName = `${safeNodeName}.md`; // Use markdown for better formatting
     const folderPath = path.join(this.nodesBasePath, 'prompts', workflowName);
-    await fs.mkdir(folderPath, { recursive: true });
-    
+
     const filePath = path.join(folderPath, fileName);
+
+    // Ensure directory exists (created only when needed)
+    await fs.mkdir(folderPath, { recursive: true });
     
     // Determine AI provider
     const provider = this.getAIProvider(node.type);

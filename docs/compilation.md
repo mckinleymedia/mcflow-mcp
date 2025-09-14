@@ -157,7 +157,7 @@ npm run deploy
 
 ### External Code Files
 
-**nodes/prompts/data_processor_analysis.txt**
+**nodes/prompts/data_processor_analysis.md**
 ```
 Analyze the provided data and identify:
 1. Data quality issues
@@ -224,7 +224,7 @@ After compilation, the workflow contains the complete code:
 - **JavaScript**: `nodes/code/*.js` → `jsCode` parameter
 - **Python**: `nodes/python/*.py` → `pythonCode` parameter
 - **SQL**: `nodes/sql/*.sql` → `sqlQuery` parameter
-- **Prompts**: `nodes/prompts/*.txt` → `prompt` parameter
+- **Prompts**: `nodes/prompts/*.md` → `prompt` parameter
 
 ## Best Practices
 

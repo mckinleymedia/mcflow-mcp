@@ -6,6 +6,7 @@ import { WorkflowInitializer } from './initializer.js';
 import { NodeValidator } from '../nodes/validator.js';
 import { WorkflowFormatter } from './formatter.js';
 import { ChangeTracker } from '../utils/change-tracker.js';
+import { stringifyWorkflowFile } from '../utils/json-formatter.js';
 
 export { NodeValidator } from '../nodes/validator.js';
 
@@ -124,8 +125,8 @@ export class WorkflowManager {
       
       // Write temporary file for validation in /tmp
       const tempPath = `/tmp/mcflow_validate_${Date.now()}_${finalName}.json`;
-      await fs.writeFile(tempPath, JSON.stringify(workflow, null, 2));
-      
+      await fs.writeFile(tempPath, stringifyWorkflowFile(workflow));
+
       // Validate and auto-fix if needed
       const validationResult = await this.validator.validateWorkflow(tempPath);
       if (!validationResult.valid) {
@@ -137,10 +138,10 @@ export class WorkflowManager {
           workflow = JSON.parse(fixedContent);
         }
       }
-      
-      // Write the final workflow file
+
+      // Write the final workflow file with proper formatting
       const filePath = path.join(targetPath, `${finalName}.json`);
-      await fs.writeFile(filePath, JSON.stringify(workflow, null, 2));
+      await fs.writeFile(filePath, stringifyWorkflowFile(workflow));
       
       // Remove temp file
       try {
@@ -448,7 +449,7 @@ export class WorkflowManager {
         console.error('Could not read existing workflow, creating new');
       }
       
-      await fs.writeFile(fullPath, JSON.stringify(workflow, null, 2));
+      await fs.writeFile(fullPath, stringifyWorkflowFile(workflow));
       
       // Mark as edited in change tracker
       const relativePath = path.relative(this.workflowsPath, fullPath);

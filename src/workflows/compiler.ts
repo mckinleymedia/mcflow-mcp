@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { stringifyWorkflowFile } from '../utils/json-formatter.js';
 
 interface WorkflowNode {
   parameters?: {
@@ -160,23 +161,16 @@ export class WorkflowCompiler {
     const promptFileName = node.parameters.nodeContent.prompt;
     const promptsDir = path.join(this.workflowsPath, 'nodes', 'prompts');
     
-    // Try .md first, then .txt
-    let promptFilePath = path.join(promptsDir, `${promptFileName}.md`);
+    // Always use .md for prompt files (better formatting support)
+    const promptFilePath = path.join(promptsDir, `${promptFileName}.md`);
     let promptContent: string;
-    
+
     try {
-      // Try to read as .md file first
       promptContent = await fs.readFile(promptFilePath, 'utf-8');
-    } catch {
-      // If .md doesn't exist, try .txt
-      promptFilePath = path.join(promptsDir, `${promptFileName}.txt`);
-      try {
-        promptContent = await fs.readFile(promptFilePath, 'utf-8');
-      } catch (error) {
-        console.warn(`  ⚠️ Prompt file not found: ${promptFileName}.md or ${promptFileName}.txt`);
-        console.warn(`     Node '${node.name}' will be deployed as-is`);
-        return false;
-      }
+    } catch (error) {
+      console.warn(`  ⚠️ Prompt file not found: ${promptFileName}.md`);
+      console.warn(`     Node '${node.name}' will be deployed as-is`);
+      return false;
     }
     
     try {
@@ -201,8 +195,7 @@ export class WorkflowCompiler {
             }
           };
           delete node.parameters.nodeContent;
-          const ext = promptFilePath.endsWith('.md') ? '.md' : '.txt';
-          console.log(`  ✅ Injected prompt (LangChain) from: ${promptFileName}${ext}`);
+          console.log(`  ✅ Injected prompt (LangChain) from: ${promptFileName}.md`);
           break;
           
         case '@n8n/n8n-nodes-langchain.agent':
@@ -213,8 +206,7 @@ export class WorkflowCompiler {
             systemMessage: promptContent
           };
           delete node.parameters.nodeContent;
-          const ext2 = promptFilePath.endsWith('.md') ? '.md' : '.txt';
-          console.log(`  ✅ Injected prompt (Agent) from: ${promptFileName}${ext2}`);
+          console.log(`  ✅ Injected prompt (Agent) from: ${promptFileName}.md`);
           break;
           
         case 'n8n-nodes-base.openAi':
@@ -227,8 +219,7 @@ export class WorkflowCompiler {
             prompt: promptContent
           };
           delete node.parameters.nodeContent;
-          const ext3 = promptFilePath.endsWith('.md') ? '.md' : '.txt';
-          console.log(`  ✅ Injected prompt from: ${promptFileName}${ext3}`);
+          console.log(`  ✅ Injected prompt from: ${promptFileName}.md`);
           break;
       }
       
@@ -321,7 +312,7 @@ export class WorkflowCompiler {
     await fs.mkdir(this.distPath, { recursive: true });
     
     const outputPath = path.join(this.distPath, fileName);
-    await fs.writeFile(outputPath, JSON.stringify(workflow, null, 2));
+    await fs.writeFile(outputPath, stringifyWorkflowFile(workflow));
     console.log(`  💾 Saved compiled version to: dist/${fileName}`);
   }
 
