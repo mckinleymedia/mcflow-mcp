@@ -1,12 +1,13 @@
 /**
  * Node Manager for McFlow
- * 
+ *
  * Manages different types of nodes as separate files for better readability and editing:
  * - Code nodes (JavaScript/Python) → workflows/nodes/code/
- * - LLM prompts → workflows/nodes/prompts/
+ * - LLM prompts (Markdown) → workflows/nodes/prompts/
  * - SQL queries → workflows/nodes/sql/
  * - Templates → workflows/nodes/templates/
- * 
+ * - Shared modules → workflows/nodes/shared/
+ *
  * During deployment, content is injected back into workflows.
  */
 
@@ -53,56 +54,7 @@ export class NodeManager {
   async initialize(): Promise<void> {
     // Don't create directories preemptively - they'll be created as needed
     // when extracting nodes. This keeps the project cleaner.
-
-    // Only create README if the nodes directory exists
-    const readmePath = path.join(this.nodesBasePath, 'README.md');
-    try {
-      await fs.access(readmePath);
-    } catch {
-      const readme = `# Extracted Nodes
-
-This directory contains content extracted from n8n nodes for better editing and version control.
-
-## Structure
-
-\`\`\`
-nodes/
-├── README.md
-├── .metadata.json        # Metadata about extracted nodes
-├── code/                 # Code nodes (JavaScript/Python)
-│   └── workflow-name/
-│       ├── node-name.js
-│       └── node-name.py
-├── prompts/             # LLM prompts
-│   └── workflow-name/
-│       └── node-name.md
-├── sql/                 # SQL queries
-│   └── workflow-name/
-│       └── query-name.sql
-├── templates/           # HTML/Text templates
-│   └── workflow-name/
-│       └── template.html
-└── shared/             # Shared modules
-    ├── utils.js
-    └── prompts/
-        └── system-prompt.md
-\`\`\`
-
-## Usage
-
-1. Extract nodes: \`McFlow extract-nodes\`
-2. Edit files with your preferred editor
-3. Deploy with automatic injection: \`McFlow deploy\`
-
-## Benefits
-
-- **Code**: Syntax highlighting, linting, debugging
-- **Prompts**: Markdown formatting, version control
-- **SQL**: Query validation, formatting
-- **Templates**: HTML preview, syntax checking
-`;
-      await fs.writeFile(readmePath, readme);
-    }
+    // README is no longer created here - all documentation is in workflows/README.md
   }
 
   /**
