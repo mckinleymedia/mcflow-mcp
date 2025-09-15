@@ -15,6 +15,9 @@ workflows/
 │   ├── prompts/        # AI prompt templates (Markdown format)
 │   │   └── workflow-name/
 │   │       └── node-name.md
+│   ├── json/           # JSON configurations for HTTP requests
+│   │   └── workflow-name/
+│   │       └── request-config.json
 │   ├── sql/            # SQL queries
 │   │   └── workflow-name/
 │   │       └── query-name.sql
@@ -40,6 +43,7 @@ workflows/
 
 - **Code**: Full IDE support with syntax highlighting, linting, debugging
 - **Prompts**: Markdown formatting for better readability and version control
+- **JSON**: Proper formatting, validation, and reusable API configurations
 - **SQL**: Query validation and formatting tools
 - **Templates**: HTML preview and syntax checking
 - **Shared Modules**: Reusable code across multiple workflows

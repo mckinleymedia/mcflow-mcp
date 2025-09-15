@@ -147,7 +147,13 @@ export class WorkflowCompiler {
       const result = await this.injectPrompt(node);
       if (result) processed = true;
     }
-    
+
+    // Handle JSON configurations for HTTP Request nodes
+    if (node.parameters?.nodeContent?.jsonBody) {
+      const result = await this.injectJSON(node);
+      if (result) processed = true;
+    }
+
     return processed;
   }
 
@@ -271,6 +277,51 @@ export class WorkflowCompiler {
       }
     }
     return false;
+  }
+
+  /**
+   * Inject JSON configuration for HTTP Request nodes
+   */
+  private async injectJSON(node: WorkflowNode): Promise<boolean> {
+    // Check if this is an HTTP Request node with JSON reference
+    if (!node.parameters?.nodeContent?.jsonBody) {
+      return false;
+    }
+
+    const jsonFileName = node.parameters.nodeContent.jsonBody;
+    const jsonDir = path.join(this.workflowsPath, 'nodes', 'json');
+    const jsonFilePath = path.join(jsonDir, `${jsonFileName}.json`);
+
+    try {
+      let jsonContent = await fs.readFile(jsonFilePath, 'utf-8');
+
+      // Remove header comments if present
+      if (jsonContent.startsWith('//')) {
+        const lines = jsonContent.split('\n');
+        let startIndex = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (!lines[i].startsWith('//') && lines[i].trim() !== '') {
+            startIndex = i;
+            break;
+          }
+        }
+        jsonContent = lines.slice(startIndex).join('\n');
+      }
+
+      // Format for n8n: add = prefix and escape appropriately
+      // Keep n8n expressions ({{ }}) intact
+      const formattedJson = '=' + jsonContent.replace(/\n/g, '\\n');
+
+      delete node.parameters.nodeContent;
+      node.parameters.jsonBody = formattedJson;
+
+      console.log(`  ✅ Injected JSON config from: ${jsonFileName}.json`);
+      return true;
+    } catch (error) {
+      console.warn(`  ⚠️ JSON file not found: ${jsonFilePath}`);
+      console.warn(`     Node '${node.name}' will be deployed as-is`);
+      return false;
+    }
   }
 
   /**

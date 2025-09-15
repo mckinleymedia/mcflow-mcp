@@ -1,0 +1,290 @@
+{
+  "id": "recraft-svg-generator",
+  "name": "Recraft SVG Generator via Replicate",
+  "description": "Generate SVG images using Recraft AI v3 SVG model through Replicate API",
+  "nodes": [
+    {
+      "id": "manual-trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "set-parameters",
+      "name": "Set Image Parameters",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        450,
+        300
+      ],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "fields": {
+          "values": [
+            {
+              "name": "prompt",
+              "type": "string",
+              "stringValue": "A modern minimalist logo of a mountain with a sun, clean vector design, flat colors, geometric shapes"
+            },
+            {
+              "name": "style",
+              "type": "string",
+              "stringValue": "realistic_image"
+            },
+            {
+              "name": "substyle",
+              "type": "string",
+              "stringValue": "product_photography"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "call-replicate",
+      "name": "Start Recraft Generation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        650,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.replicate.com/v1/predictions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Token {{ $credentials.replicateApi.apiToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"version\": \"39a28ab2e7ec39c65b87e2e05a0c01b8520e9b4b3d881821f5be0f02e70ba8a2\",\n  \"input\": {\n    \"prompt\": \"{{ $json.prompt }}\",\n    \"style\": \"{{ $json.style }}\",\n    \"substyle\": \"{{ $json.substyle }}\"\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "wait-5-seconds",
+      "name": "Wait for Processing",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        850,
+        300
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 5,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "check-status",
+      "name": "Check Generation Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1050,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $node['call-replicate'].json.urls.get }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Token {{ $credentials.replicateApi.apiToken }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "check-if-complete",
+      "name": "Is Generation Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.1,
+      "position": [
+        1250,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "status-check",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "succeeded",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "format-output",
+      "name": "Format Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1450,
+        200
+      ],
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const result = $input.first().json;\n\n// Extract the image URL from the response\nconst output = {\n  status: \"success\",\n  imageUrl: result.output?.[0] || result.output,\n  model: \"recraft-ai/recraft-v3-svg\",\n  prompt: result.input?.prompt,\n  style: result.input?.style,\n  substyle: result.input?.substyle,\n  createdAt: result.created_at,\n  completedAt: result.completed_at,\n  predictionId: result.id,\n  processingTime: result.metrics?.predict_time\n};\n\nreturn [{\n  json: output\n}];"
+      }
+    },
+    {
+      "id": "wait-retry",
+      "name": "Wait Before Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1250,
+        450
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 3,
+        "unit": "seconds"
+      }
+    }
+  ],
+  "connections": {
+    "manual-trigger": {
+      "main": [
+        [
+          {
+            "node": "set-parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "set-parameters": {
+      "main": [
+        [
+          {
+            "node": "call-replicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "call-replicate": {
+      "main": [
+        [
+          {
+            "node": "wait-5-seconds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "wait-5-seconds": {
+      "main": [
+        [
+          {
+            "node": "check-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-status": {
+      "main": [
+        [
+          {
+            "node": "check-if-complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check-if-complete": {
+      "main": [
+        [
+          {
+            "node": "format-output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "wait-retry",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "wait-retry": {
+      "main": [
+        [
+          {
+            "node": "check-status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "updatedAt": "2025-09-14T23:55:05.358Z"
+}
