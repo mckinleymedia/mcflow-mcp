@@ -155,7 +155,7 @@ class WorkflowDeployer {
    * Extract code from all workflows
    */
   async extractAllCode(): Promise<void> {
-    const flowsDir = path.join(this.config.workflowsPath!, 'workflows', 'flows');
+    const flowsDir = path.join(this.config.workflowsPath!, 'flows');
     const files = await fs.readdir(flowsDir);
     const workflowFiles = files.filter(f => f.endsWith('.json'));
     

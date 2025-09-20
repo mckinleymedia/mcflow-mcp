@@ -198,9 +198,8 @@ export class WorkflowManager {
   private async getWorkflowList(): Promise<Array<{name: string, description?: string}>> {
     const workflows: Array<{name: string, description?: string}> = [];
     
-    // Try multiple possible paths
+    // workflowsPath already points to the workflows folder
     const possibleFlowsPaths = [
-      path.join(this.workflowsPath, 'workflows', 'flows'),
       path.join(this.workflowsPath, 'flows'),
     ];
     
@@ -247,7 +246,7 @@ export class WorkflowManager {
         // Simple structure: look in ./workflows/flows/
         // Try multiple possible paths
         const possibleFlowsPaths = [
-          path.join(this.workflowsPath, 'workflows', 'flows'),
+          path.join(this.workflowsPath, 'flows'),
           path.join(this.workflowsPath, 'flows'),
         ];
         
@@ -313,8 +312,8 @@ export class WorkflowManager {
       } else {
         // Unknown structure: try common locations
         const possiblePaths = [
-          path.join(this.workflowsPath, 'workflows', 'flows'),  // New structure
-          path.join(this.workflowsPath, 'workflows'),           // Old structure
+          path.join(this.workflowsPath, 'flows'),  // New structure
+          this.workflowsPath,           // Already the workflows folder
           this.workflowsPath,                                    // Root
         ];
         
@@ -505,7 +504,7 @@ export class WorkflowManager {
           workflows: [],
         };
         
-        const workflowsDir = path.join(this.workflowsPath, 'workflows');
+        const workflowsDir = this.workflowsPath;  // Already points to workflows folder
         try {
           const files = await fs.readdir(workflowsDir);
           info.workflows = files.filter(f => f.endsWith('.json')).map(f => f.replace('.json', ''));

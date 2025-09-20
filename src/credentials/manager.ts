@@ -159,7 +159,6 @@ export class CredentialManager {
     
     // Try to load from .env files
     const envPaths = [
-      path.join(this.workflowsPath, 'workflows', '.env'),
       path.join(this.workflowsPath, '.env'),
     ];
     
@@ -396,7 +395,7 @@ export class CredentialManager {
     content += '# Optional: For API access (not recommended for security)\n';
     content += '# N8N_API_KEY=\n';
     
-    const envExamplePath = path.join(this.workflowsPath, 'workflows', '.env.example');
+    const envExamplePath = path.join(this.workflowsPath, '.env.example');
     await fs.writeFile(envExamplePath, content, 'utf-8');
   }
 

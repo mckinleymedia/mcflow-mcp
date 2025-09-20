@@ -700,7 +700,7 @@ export class NodeValidator {
    * Validate all workflows in the project
    */
   async validateAllWorkflows(): Promise<any> {
-    const flowsDir = path.join(this.workflowsPath, 'workflows', 'flows');
+    const flowsDir = path.join(this.workflowsPath, 'flows');
     const files = await fs.readdir(flowsDir);
     const results: any[] = [];
 

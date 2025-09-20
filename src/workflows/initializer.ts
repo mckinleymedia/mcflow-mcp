@@ -8,7 +8,7 @@ export class WorkflowInitializer {
 
   constructor(workflowsPath: string) {
     this.workflowsPath = workflowsPath;
-    this.workflowsOuterPath = path.join(workflowsPath, 'workflows');
+    this.workflowsOuterPath = workflowsPath;  // Already the workflows folder
   }
 
   /**
@@ -24,8 +24,8 @@ export class WorkflowInitializer {
     if (this.initialized) return true;
 
     try {
-      // The outer workflows folder
-      const outerWorkflowsDir = path.join(this.workflowsPath, 'workflows');
+      // The workflows folder (already provided)
+      const outerWorkflowsDir = this.workflowsPath;
       
       // The inner flows folder where JSON files go
       const flowsDir = path.join(outerWorkflowsDir, 'flows');
@@ -283,7 +283,7 @@ build/
    */
   async needsInitialization(): Promise<boolean> {
     try {
-      const workflowsDir = path.join(this.workflowsPath, 'workflows');
+      const workflowsDir = this.workflowsPath;
       const readmePath = path.join(this.workflowsPath, 'README.md');
       
       // Check if workflows dir exists

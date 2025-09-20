@@ -108,20 +108,23 @@ export class WorkflowCompiler {
    */
   private async processNode(node: WorkflowNode): Promise<boolean> {
     let processed = false;
-    
+
     // Check if node has nodeContent.jsCode reference
     if (node.parameters?.nodeContent?.jsCode) {
       const codeFileName = node.parameters.nodeContent.jsCode;
       const codeFilePath = path.join(this.nodesCodePath, `${codeFileName}.js`);
-      
+
       try {
         // Try to load the code file
-        const code = await fs.readFile(codeFilePath, 'utf-8');
-        
+        let code = await fs.readFile(codeFilePath, 'utf-8');
+
+        // Process @prompt-file comments in the code
+        code = await this.processPromptFileComments(code);
+
         // Replace the nodeContent reference with actual code
         delete node.parameters.nodeContent;
         node.parameters.jsCode = code;
-        
+
         console.log(`  ✅ Injected code from: ${codeFileName}.js`);
         processed = true;
       } catch (error) {
@@ -262,9 +265,15 @@ export class WorkflowCompiler {
       const extension = fileExt || `.${folderName}`;
       const codeDir = path.join(this.workflowsPath, 'nodes', folderName);
       const codeFilePath = path.join(codeDir, `${codeFileName}${extension}`);
-      
+
       try {
-        const code = await fs.readFile(codeFilePath, 'utf-8');
+        let code = await fs.readFile(codeFilePath, 'utf-8');
+
+        // Process @prompt-file comments in the code (for JS and Python)
+        if (folderName === 'code' || folderName === 'python') {
+          code = await this.processPromptFileComments(code);
+        }
+
         delete node.parameters.nodeContent;
         node.parameters[codeType] = code;
         const displayExt = extension.startsWith('.') ? extension.slice(1) : extension;
@@ -277,6 +286,45 @@ export class WorkflowCompiler {
       }
     }
     return false;
+  }
+
+  /**
+   * Process @prompt-file comments in code and inject prompt content
+   * Looks for patterns like:
+   * // @prompt-file: workflows/nodes/prompts/filename.md
+   * const myPrompt = `...`;
+   */
+  private async processPromptFileComments(code: string): Promise<string> {
+    // Regular expression to match @prompt-file comment followed by a const assignment
+    const promptFilePattern = /\/\/\s*@prompt-file:\s*(.+?)\s*\n\s*const\s+(\w+)\s*=\s*[`'"]([\s\S]*?)[`'"]/g;
+
+    let processedCode = code;
+    let match;
+
+    while ((match = promptFilePattern.exec(code)) !== null) {
+      const [fullMatch, promptPath, constName, originalValue] = match;
+
+      // Build the full path to the prompt file
+      // Prompt path is already relative to project root, just join it
+      const promptFilePath = path.join(this.workflowsPath, promptPath.trim());
+
+      try {
+        // Read the prompt file content
+        const promptContent = await fs.readFile(promptFilePath, 'utf-8');
+
+        // Replace the const value with the prompt file content
+        // Keep the comment for documentation
+        const replacement = `// @prompt-file: ${promptPath.trim()}\nconst ${constName} = \`${promptContent.replace(/`/g, '\\`')}\``;
+
+        processedCode = processedCode.replace(fullMatch, replacement);
+        console.log(`    📝 Injected prompt from: ${promptPath.trim()}`);
+      } catch (error) {
+        console.warn(`    ⚠️ Prompt file not found: ${promptFilePath}`);
+        // Keep original code if file not found
+      }
+    }
+
+    return processedCode;
   }
 
   /**

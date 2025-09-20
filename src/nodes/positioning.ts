@@ -15,7 +15,7 @@ export interface NodeDimensions {
 
 export class NodePositioning {
   // Default spacing between nodes (accounting for typical node sizes)
-  private static readonly HORIZONTAL_SPACING = 280; // Increased to account for wider nodes
+  private static readonly HORIZONTAL_SPACING = 350; // Increased for LangChain and other wide nodes
   private static readonly VERTICAL_SPACING = 250; // Increased to account for taller nodes
   private static readonly INITIAL_X = 250;
   private static readonly INITIAL_Y = 300;
@@ -38,9 +38,9 @@ export class NodePositioning {
 
     // AI/LLM nodes (typically larger due to more parameters)
     'n8n-nodes-base.openAi': { width: 260, height: 160 },
-    '@n8n/n8n-nodes-langchain.chainLlm': { width: 280, height: 180 },
-    '@n8n/n8n-nodes-langchain.agent': { width: 280, height: 180 },
-    '@n8n/n8n-nodes-langchain.vectorStoreInMemory': { width: 260, height: 160 },
+    '@n8n/n8n-nodes-langchain.chainLlm': { width: 320, height: 200 },
+    '@n8n/n8n-nodes-langchain.agent': { width: 320, height: 200 },
+    '@n8n/n8n-nodes-langchain.vectorStoreInMemory': { width: 280, height: 180 },
 
     // Data processing nodes
     'n8n-nodes-base.mergeV3': { width: 240, height: 140 },
@@ -77,7 +77,10 @@ export class NodePositioning {
 
     if (isHorizontal) {
       // Horizontal spacing: half of each node's width plus buffer
-      return (dim1.width + dim2.width) / 2 + 60; // 60px buffer
+      // Use larger buffer for wider nodes (LangChain nodes need more space)
+      const maxWidth = Math.max(dim1.width, dim2.width);
+      const buffer = maxWidth >= 280 ? 120 : 80; // Larger buffer for wide nodes
+      return (dim1.width + dim2.width) / 2 + buffer;
     } else {
       // Vertical spacing: half of each node's height plus buffer
       return (dim1.height + dim2.height) / 2 + 80; // 80px buffer

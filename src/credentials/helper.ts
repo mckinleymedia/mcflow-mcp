@@ -32,7 +32,7 @@ export class CredentialHelper {
    */
   async analyzeCredentialRequirements(): Promise<any> {
     try {
-      const flowsDir = path.join(this.workflowsPath, 'workflows', 'flows');
+      const flowsDir = path.join(this.workflowsPath, 'flows');
       const files = await fs.readdir(flowsDir);
       
       const requirements = new Map<string, CredentialRequirement>();
@@ -175,7 +175,7 @@ export class CredentialHelper {
     const envVars = new Set<string>();
     
     const envPaths = [
-      path.join(this.workflowsPath, 'workflows', '.env'),
+      path.join(this.workflowsPath, '.env'),
       path.join(this.workflowsPath, '.env'),
     ];
     
@@ -226,7 +226,7 @@ export class CredentialHelper {
       content += '# 3. Rotate keys regularly\n';
       content += '# 4. Use environment-specific keys (dev/prod)\n';
       
-      const envExamplePath = path.join(this.workflowsPath, 'workflows', '.env.example');
+      const envExamplePath = path.join(this.workflowsPath, '.env.example');
       await fs.writeFile(envExamplePath, content, 'utf-8');
       
       return {

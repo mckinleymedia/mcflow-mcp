@@ -157,6 +157,20 @@ export class ToolHandler {
       case 'deployed':
         return await this.n8nManager.listDeployedWorkflows();
 
+      case 'list_credentials':
+        const credentials = await this.n8nManager.listCredentials();
+        return {
+          content: [{
+            type: 'text',
+            text: credentials.length > 0
+              ? `📋 Found ${credentials.length} credentials in n8n:\n\n` +
+                credentials.map((c: any) => `• ID: ${c.id}\n  Name: ${c.name}\n  Type: ${c.type}`).join('\n\n') +
+                '\n\n💡 Use these IDs in your workflow nodes to reference credentials'
+              : '📭 No credentials found in n8n\n\n' +
+                '💡 Add credentials in the n8n UI first, then use this command to get their IDs'
+          }]
+        };
+
       case 'activate':
         return await this.n8nManager.updateWorkflowStatus(
           args?.id as string,
@@ -187,7 +201,7 @@ export class ToolHandler {
         const workflowToExtract = args?.workflow as string | undefined;
 
         if (workflowToExtract) {
-          const workflowPath = path.join(this.workflowsPath, 'workflows', 'flows', `${workflowToExtract}.json`);
+          const workflowPath = path.join(this.workflowsPath, 'flows', `${workflowToExtract}.json`);
           const result = await codeManager.extractNodes(workflowPath);
           return {
             content: [{

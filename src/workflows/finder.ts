@@ -8,8 +8,8 @@ export type WorkflowStructureType = 'multi-project' | 'simple' | 'unknown';
 
 export interface WorkflowStructure {
   type: WorkflowStructureType;
-  rootPath: string;
-  workflowsPath: string;
+  projectPath: string;  // The project root directory
+  workflowsPath: string;  // The workflows folder
   projects?: string[]; // For multi-project structure
 }
 
@@ -21,15 +21,18 @@ export interface WorkflowStructure {
  */
 export function findWorkflowsPath(): string {
   const structure = detectWorkflowStructure();
-  console.error(`Detected ${structure.type} workflow structure at: ${structure.rootPath}`);
-  return structure.rootPath;
+  console.error(`Detected ${structure.type} workflow structure at: ${structure.workflowsPath}`);
+  return structure.workflowsPath;
 }
 
 /**
  * Detects and returns information about the workflow structure
  */
 export function detectWorkflowStructure(): WorkflowStructure {
+  // MCP servers inherit the working directory from the client
+  // So process.cwd() should be where the user is working
   const cwd = process.cwd();
+  console.error(`McFlow: Detecting workflows in: ${cwd}`);
   
   // 1. Check environment variable first (highest priority)
   if (process.env.WORKFLOWS_PATH) {
@@ -43,37 +46,40 @@ export function detectWorkflowStructure(): WorkflowStructure {
         // It has the expected structure
         return {
           type: 'simple',
-          rootPath: envPath,
-          workflowsPath: envPath
+          projectPath: envPath,
+          workflowsPath: workflowsDir
         };
       }
       
       // Otherwise treat as unknown
       return {
         type: 'unknown',
-        rootPath: envPath,
+        projectPath: envPath,
         workflowsPath: envPath
       };
     }
   }
 
   // 2. Check for simple structure: ./workflows/flows/
-  const simpleWorkflowsPath = path.join(cwd, 'workflows');
-  const flowsPath = path.join(simpleWorkflowsPath, 'flows');
-  
+  const workflowsDir = path.join(cwd, 'workflows');
+  const flowsPath = path.join(workflowsDir, 'flows');
+
   if (fs.existsSync(flowsPath) && fs.statSync(flowsPath).isDirectory()) {
-    // Verify it has the expected structure (README, .env, flows/)
-    const hasReadme = fs.existsSync(path.join(simpleWorkflowsPath, 'README.md'));
-    const hasEnv = fs.existsSync(path.join(simpleWorkflowsPath, '.env')) || 
-                   fs.existsSync(path.join(simpleWorkflowsPath, '.env.example'));
-    
-    if (hasReadme || hasEnv) {
-      return {
-        type: 'simple',
-        rootPath: simpleWorkflowsPath,
-        workflowsPath: flowsPath
-      };
-    }
+    // If flows/ directory exists, that's good enough
+    return {
+      type: 'simple',
+      projectPath: cwd,
+      workflowsPath: workflowsDir
+    };
+  }
+
+  // 2b. Also check if ./workflows/ exists (will create flows/ later)
+  if (fs.existsSync(workflowsDir) && fs.statSync(workflowsDir).isDirectory()) {
+    return {
+      type: 'simple',
+      projectPath: cwd,
+      workflowsPath: workflowsDir
+    };
   }
 
   // 3. Check for multi-project structure (multiple projects with workflows folders)
@@ -102,8 +108,8 @@ export function detectWorkflowStructure(): WorkflowStructure {
     if (projects.length > 0) {
       return {
         type: 'multi-project',
-        rootPath: cwd,
-        workflowsPath: cwd,
+        projectPath: cwd,
+        workflowsPath: cwd,  // For multi-project, this is the root
         projects
       };
     }
@@ -115,7 +121,7 @@ export function detectWorkflowStructure(): WorkflowStructure {
   if (cwd.endsWith('/workflows') || cwd.includes('/workflows/')) {
     return {
       type: 'unknown',
-      rootPath: cwd,
+      projectPath: path.dirname(cwd),
       workflowsPath: cwd
     };
   }
@@ -129,8 +135,8 @@ export function detectWorkflowStructure(): WorkflowStructure {
   
   return {
     type: 'unknown',
-    rootPath: cwd,
-    workflowsPath: cwd
+    projectPath: cwd,
+    workflowsPath: path.join(cwd, 'workflows')  // Assume workflows subdirectory
   };
 }
 
@@ -179,5 +185,5 @@ export function getWorkflowsDirectory(structure: WorkflowStructure): string {
   if (structure.type === 'simple') {
     return structure.workflowsPath;
   }
-  return structure.rootPath;
+  return structure.projectPath;
 }

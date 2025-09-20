@@ -647,6 +647,122 @@ export class N8nManager {
   }
 
   /**
+   * List all credentials from n8n with their IDs
+   */
+  async listCredentials(): Promise<any> {
+    try {
+      // Try different credential listing approaches
+      // First try the credentials list command
+      let command = 'n8n credential:list';
+      console.error(`Executing: ${command}`);
+
+      let stdout: string;
+      let stderr: string;
+
+      try {
+        ({ stdout, stderr } = await execAsync(command, {
+          timeout: 10000,
+        }));
+      } catch (error: any) {
+        // If that fails, try alternative command
+        console.error('credential:list failed, trying list:credential');
+        command = 'n8n list:credential';
+        try {
+          ({ stdout, stderr } = await execAsync(command, {
+            timeout: 10000,
+          }));
+        } catch (error2: any) {
+          // If both fail, provide helpful message
+          throw new Error(
+            'Unable to list credentials via n8n CLI. ' +
+            'Please check credentials manually in n8n UI at http://localhost:5678/credentials'
+          );
+        }
+      }
+
+      if (this.hasRealError(stderr, stdout)) {
+        throw new Error(stderr);
+      }
+
+      // Parse the output - n8n outputs credentials as a table or JSON
+      const lines = stdout.split('\n').filter(line => line.trim());
+      const credentials: Array<{id: string, name: string, type: string}> = [];
+
+      // Try to parse as JSON first
+      try {
+        const parsed = JSON.parse(stdout);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      } catch {
+        // Not JSON, parse as table
+        // Skip header lines, typically starts with "ID" or similar
+        let inData = false;
+        for (const line of lines) {
+          if (line.includes('ID') && line.includes('Name')) {
+            inData = true;
+            continue;
+          }
+          if (inData && line.trim()) {
+            // Parse table row - format is typically: ID | Name | Type | ...
+            const parts = line.split(/\s{2,}|\t|\|/).map(s => s.trim()).filter(s => s);
+            if (parts.length >= 2) {
+              credentials.push({
+                id: parts[0],
+                name: parts[1],
+                type: parts[2] || 'unknown'
+              });
+            }
+          }
+        }
+      }
+
+      return credentials;
+    } catch (error: any) {
+      // If CLI doesn't work, try using the API
+      console.error('CLI approach failed, trying API approach');
+
+      try {
+        // Use curl to access n8n API (if available)
+        const apiCommand = 'curl -s http://localhost:5678/rest/credentials';
+        const { stdout: apiOutput } = await execAsync(apiCommand, {
+          timeout: 5000,
+        });
+
+        const apiCredentials = JSON.parse(apiOutput);
+        if (Array.isArray(apiCredentials.data)) {
+          return apiCredentials.data.map((cred: any) => ({
+            id: cred.id,
+            name: cred.name,
+            type: cred.type
+          }));
+        }
+      } catch (apiError) {
+        console.error('API approach also failed');
+      }
+
+      // If n8n is not running or command fails
+      if (error.message.includes('command not found')) {
+        throw new Error('n8n CLI is not installed');
+      }
+      if (error.message.includes('connect')) {
+        throw new Error('n8n is not running. Start it with: n8n start');
+      }
+
+      // Return informative error
+      throw new Error(
+        'Unable to list credentials. The n8n CLI may not support this command. ' +
+        'Please check your credentials manually in the n8n UI at http://localhost:5678/credentials\n\n' +
+        'To find credential IDs:\n' +
+        '1. Open n8n UI\n' +
+        '2. Go to Credentials\n' +
+        '3. Click on a credential\n' +
+        '4. The ID is in the URL (e.g., /credentials/ABC123xyz/edit)'
+      );
+    }
+  }
+
+  /**
    * Execute a workflow in n8n
    */
   async executeWorkflow(options: {

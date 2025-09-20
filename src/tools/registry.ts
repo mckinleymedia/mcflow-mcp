@@ -295,6 +295,14 @@ export const getToolDefinitions = () => [
     },
   },
   {
+    name: 'list_credentials',
+    description: 'List all credentials in n8n with their IDs - use these IDs in workflow nodes',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
     name: 'activate',
     description: 'Activate or deactivate a workflow in n8n',
     inputSchema: {

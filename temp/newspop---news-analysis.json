@@ -1,0 +1,182 @@
+{
+  "createdAt": "2025-09-20T18:23:34.229Z",
+  "updatedAt": "2025-09-20T18:24:07.700Z",
+  "id": "news-analysis-module",
+  "name": "Newspop - News Analysis",
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "id": "workflow-trigger",
+      "name": "When called by another workflow",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ],
+      "parameters": {
+        "mode": "passThrough"
+      }
+    },
+    {
+      "id": "prepare-items",
+      "name": "Prepare Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Process incoming news items from news collection\nconst allItems = $input.all();\n\nconsole.log('Received items:', allItems.length);\n\n// Limit to first 20 items to avoid overwhelming the AI\nconst itemsToAnalyze = allItems.slice(0, 20);\n\n// Create a batch analysis prompt for the limited set\nconst newsItems = itemsToAnalyze.map((item, index) => {\n  const newsItem = item.json;\n  return `Item ${index + 1}:\nTitle: ${newsItem.title || 'No title'}\nContent: ${(newsItem.contentSnippet || newsItem.description || newsItem.content || 'No content').substring(0, 150)}`;\n}).join('\\n\\n');\n\n// @prompt-file: workflows/nodes/prompts/news_analysis_batch.md\nconst batchPrompt = `You MUST respond with ONLY a valid JSON array. No explanations, no text before or after.\n\nAnalyze these ${itemsToAnalyze.length} news items for satirical product potential (1-10 score):\n\n${newsItems}\n\nRESPOND WITH ONLY THIS JSON FORMAT - NO OTHER TEXT:\n[\n  {\"item_number\": 1, \"title\": \"exact title from item 1\", \"score\": 7, \"reasoning\": \"brief\", \"product_ideas\": [\"idea1\", \"idea2\"], \"risk_level\": \"low\", \"market_appeal\": \"high\"},\n  {\"item_number\": 2, \"title\": \"exact title from item 2\", \"score\": 5, \"reasoning\": \"brief\", \"product_ideas\": [\"idea1\", \"idea2\"], \"risk_level\": \"medium\", \"market_appeal\": \"medium\"}\n]\n\nCRITICAL: Return ONLY the JSON array. Start with [ and end with ]. Include ALL ${itemsToAnalyze.length} items.`;\n\n// Return a single item with the batch prompt\nconsole.log(`Returning batch prompt for ${itemsToAnalyze.length} items (from original ${allItems.length})`);\nreturn [{\n  json: {\n    chatInput: batchPrompt,\n    originalItems: itemsToAnalyze.map(item => item.json),\n    itemCount: itemsToAnalyze.length\n  }\n}];"
+      }
+    },
+    {
+      "id": "analyze-with-ai",
+      "name": "Analyze with AI",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [
+        750,
+        300
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "anthropic-model",
+      "name": "Anthropic Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.2,
+      "position": [
+        750,
+        450
+      ],
+      "parameters": {
+        "model": "claude-3-5-sonnet-20241022",
+        "temperature": 0.7,
+        "maxTokens": 2000,
+        "options": {}
+      },
+      "credentials": {
+        "anthropicApi": {
+          "id": "ABmevrDhkwKzFCJx",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "id": "parse-ai-response",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Parse batched AI response and prepare data\nconst aiResponse = $input.item.json;\nconst preparedData = $('Prepare Items').item.json;\nconst originalItems = preparedData.originalItems || [];\n\nconsole.log('AI Response type:', typeof aiResponse);\nconsole.log('AI Response keys:', Object.keys(aiResponse));\nconsole.log(`Original items to match: ${originalItems.length}`);\n\nlet analysisArray;\ntry {\n  // The LangChain AI node might return the response in different ways\n  let content = '';\n\n  // Common response patterns from LangChain\n  if (typeof aiResponse === 'string') {\n    content = aiResponse;\n  } else if (aiResponse.response) {\n    content = aiResponse.response;\n  } else if (aiResponse.text) {\n    content = aiResponse.text;\n  } else if (aiResponse.output) {\n    content = aiResponse.output;\n  } else if (aiResponse.message) {\n    content = aiResponse.message;\n  } else if (aiResponse.content) {\n    content = aiResponse.content;\n  } else {\n    // Look for any key that contains the actual response\n    const possibleKeys = Object.keys(aiResponse).filter(key =>\n      key !== 'chatInput' &&\n      key !== 'originalItems' &&\n      key !== 'itemCount'\n    );\n\n    if (possibleKeys.length > 0) {\n      console.log('Trying key:', possibleKeys[0]);\n      content = aiResponse[possibleKeys[0]];\n    } else {\n      content = JSON.stringify(aiResponse);\n    }\n  }\n\n  console.log('Content to parse (first 500 chars):', String(content).substring(0, 500));\n\n  // If content is still an object, stringify it\n  if (typeof content === 'object') {\n    content = JSON.stringify(content);\n  }\n\n  // Clean the response\n  content = content.trim();\n\n  // Remove any markdown code blocks\n  content = content.replace(/```json\\s*/g, '').replace(/```\\s*/g, '');\n\n  // Find the JSON array in the response\n  // Look for content starting with [ and ending with ]\n  const arrayStart = content.indexOf('[');\n  const arrayEnd = content.lastIndexOf(']');\n\n  if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {\n    content = content.substring(arrayStart, arrayEnd + 1);\n  } else {\n    // If the AI didn't return JSON, throw an error\n    throw new Error('AI did not return a JSON array. Response started with: ' + content.substring(0, 100));\n  }\n\n  analysisArray = JSON.parse(content);\n  console.log(`Successfully parsed AI response with ${analysisArray.length} items`);\n\n  // Validate it's an array\n  if (!Array.isArray(analysisArray)) {\n    throw new Error('Parsed response is not an array');\n  }\n\n} catch (error) {\n  console.error('Failed to parse AI response:', error.message);\n  console.log('Full AI response:', JSON.stringify(aiResponse, null, 2).substring(0, 1000));\n\n  // Return error ONLY for the items we tried to analyze (not all items)\n  console.log(`Returning ${originalItems.length} error items (only the ones we tried to analyze)`);\n  return originalItems.map((item, index) => ({\n    json: {\n      error: true,\n      error_message: 'Failed to parse AI response: ' + error.message,\n      news_title: item.title,\n      news_url: item.link,\n      score: 0,\n      item_number: index + 1\n    }\n  }));\n}\n\n// Process each analysis result and match with original items\nconst results = analysisArray.map((analysis, index) => {\n  const originalItem = originalItems[index] || {};\n\n  // Validate and clean the analysis data\n  const score = Math.max(1, Math.min(10, parseInt(analysis.score) || 0));\n\n  return {\n    json: {\n      // Analysis results\n      score: score,\n      reasoning: analysis.reasoning || '',\n      product_ideas: Array.isArray(analysis.product_ideas) ? analysis.product_ideas : [],\n      risk_level: analysis.risk_level || 'medium',\n      market_appeal: analysis.market_appeal || 'medium',\n\n      // Original news data (prefer analysis title for matching)\n      news_title: analysis.title || originalItem.title || '',\n      news_url: originalItem.link || '',\n      news_content: originalItem.content || originalItem.contentSnippet || '',\n      news_published: originalItem.pubDate || originalItem.isoDate || '',\n      news_source: originalItem.source || 'RSS Feed',\n\n      // Metadata\n      item_number: analysis.item_number || (index + 1),\n      analyzed_at: new Date().toISOString()\n    }\n  };\n});\n\nconsole.log(`Returning ${results.length} parsed items`);\nreturn results;"
+      }
+    },
+    {
+      "id": "sort-and-filter",
+      "name": "Sort and Filter Top 5",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Collect ALL analyzed items and sort by score\nconst allItems = $input.all();\n\nconsole.log(`Received ${allItems.length} analyzed items`);\n\n// Filter out error items first\nconst validItems = allItems.filter(item => {\n  const hasError = item.json?.error || item.error;\n  if (hasError) {\n    console.log(`Skipping error item: ${item.json?.news_title || item.news_title || 'Unknown'}`);\n    return false;\n  }\n  return true;\n});\n\nconsole.log(`${validItems.length} valid items after filtering errors`);\n\nif (validItems.length === 0) {\n  return [{\n    module: 'news_analysis',\n    viable_count: 0,\n    message: 'All items had parsing errors',\n    analyzed_at: new Date().toISOString()\n  }];\n}\n\n// Sort by score (highest first)\nconst sortedItems = validItems.sort((a, b) => {\n  const scoreA = a.json?.score || a.score;\n  const scoreB = b.json?.score || b.score;\n  return scoreB - scoreA;\n});\n\n// Log ALL scores for debugging\nconsole.log('All item scores:');\nsortedItems.forEach((item, index) => {\n  const score = item.json?.score || item.score;\n  const title = item.json?.news_title || item.news_title || 'Unknown';\n  console.log(`  Rank ${index + 1}: Score ${score} - ${title}`);\n});\n\n// ALWAYS take top 5 items, regardless of score\nconst topItems = sortedItems.slice(0, 5);\n\nconsole.log(`\\nReturning top ${topItems.length} items:`);\ntopItems.forEach((item, index) => {\n  const score = item.json?.score || item.score;\n  const title = item.json?.news_title || item.news_title;\n  console.log(`  #${index + 1}: Score ${score} - ${title}`);\n});\n\nreturn topItems;"
+      }
+    }
+  ],
+  "connections": {
+    "When called by another workflow": {
+      "main": [
+        [
+          {
+            "node": "Prepare Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Items": {
+      "main": [
+        [
+          {
+            "node": "Analyze with AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anthropic Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Analyze with AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Analyze with AI": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Sort and Filter Top 5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "news-analysis-module"
+  },
+  "pinData": {},
+  "versionId": null,
+  "triggerCount": 0,
+  "tags": [],
+  "shared": [
+    {
+      "createdAt": "2025-08-05T17:34:40.400Z",
+      "updatedAt": "2025-08-05T17:34:40.400Z",
+      "role": "workflow:owner",
+      "workflowId": "news-analysis-module",
+      "projectId": "YRQaX7MJAUKuOvsl",
+      "project": {
+        "createdAt": "2025-08-05T17:29:35.984Z",
+        "updatedAt": "2025-08-31T23:52:02.359Z",
+        "id": "YRQaX7MJAUKuOvsl",
+        "name": "Will McKinley <will@mckinleymedia.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null
+      }
+    }
+  ]
+}

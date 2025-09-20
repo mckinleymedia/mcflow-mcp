@@ -83,7 +83,7 @@ export class ChangeTracker {
    * Scan workflows directory and update state
    */
   async scanWorkflows(): Promise<void> {
-    const flowsDir = path.join(this.workflowsPath, 'workflows', 'flows');
+    const flowsDir = path.join(this.workflowsPath, 'flows');
     
     try {
       const files = await fs.readdir(flowsDir);
