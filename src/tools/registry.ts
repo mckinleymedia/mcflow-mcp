@@ -400,4 +400,117 @@ export const getToolDefinitions = () => [
       required: ['action'],
     },
   },
+  {
+    name: 'add_tracking',
+    description: 'Add generic workflow execution tracking to a workflow (stores data via HTTP requests)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Path to the workflow file to add tracking to',
+        },
+        storageUrl: {
+          type: 'string',
+          description: 'Base URL for storage API (or use WORKFLOW_STORAGE_URL env var)',
+        },
+        options: {
+          type: 'object',
+          properties: {
+            addStartTracking: {
+              type: 'boolean',
+              description: 'Add tracking at workflow start (default: true)',
+            },
+            addEndTracking: {
+              type: 'boolean',
+              description: 'Add tracking at workflow end (default: true)',
+            },
+            addErrorTracking: {
+              type: 'boolean',
+              description: 'Add error tracking with error trigger',
+            },
+            checkpoints: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  afterNode: {
+                    type: 'string',
+                    description: 'Node name to add checkpoint after',
+                  },
+                  checkpointName: {
+                    type: 'string',
+                    description: 'Name for this checkpoint',
+                  },
+                },
+              },
+              description: 'Checkpoints to add after specific nodes',
+            },
+            storeOutputNodes: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Node names whose outputs should be stored',
+            },
+          },
+          description: 'Tracking options',
+        },
+      },
+      required: ['path'],
+    },
+  },
+  {
+    name: 'configure_tracking',
+    description: 'Configure global tracking settings for workflows',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        enabled: {
+          type: 'boolean',
+          description: 'Enable or disable tracking globally',
+        },
+        storageUrl: {
+          type: 'string',
+          description: 'Base URL for storage API',
+        },
+        trackAllNodes: {
+          type: 'boolean',
+          description: 'Track all node outputs (can be verbose)',
+        },
+        enableCheckpoints: {
+          type: 'boolean',
+          description: 'Enable checkpoint system',
+        },
+        enableErrorTracking: {
+          type: 'boolean',
+          description: 'Enable error tracking',
+        },
+      },
+    },
+  },
+  {
+    name: 'add_checkpoint',
+    description: 'Add a checkpoint save/restore capability to a workflow',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Path to the workflow file',
+        },
+        checkpointName: {
+          type: 'string',
+          description: 'Name for the checkpoint',
+        },
+        afterNode: {
+          type: 'string',
+          description: 'Node to add checkpoint after (for saving)',
+        },
+        addRestore: {
+          type: 'boolean',
+          description: 'Also add checkpoint restore at workflow start',
+        },
+      },
+      required: ['path', 'checkpointName'],
+    },
+  },
 ];

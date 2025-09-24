@@ -1,0 +1,116 @@
+{
+  "name": "test-tracking-demo",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual_trigger",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        250,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simulate expensive operation\nconst items = $input.all();\n\n// Add some processing\nreturn items.map(item => ({\n  ...item.json,\n  processedAt: new Date().toISOString(),\n  processingStep: 'initial',\n  dataSize: JSON.stringify(item.json).length\n}));"
+      },
+      "id": "process_data",
+      "name": "Process Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        450,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://jsonplaceholder.typicode.com/posts",
+        "sendBody": true,
+        "bodyParametersUi": {
+          "parameter": [
+            {
+              "name": "title",
+              "value": "={{$json.title || 'Test Post'}}"
+            },
+            {
+              "name": "body",
+              "value": "={{$json.body || 'Test Body'}}"
+            },
+            {
+              "name": "userId",
+              "value": "={{$json.userId || 1}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "api_call",
+      "name": "API Call",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        650,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Transform API response\nconst items = $input.all();\n\nreturn items.map(item => ({\n  id: item.json.id,\n  title: item.json.title,\n  status: 'completed',\n  completedAt: new Date().toISOString()\n}));"
+      },
+      "id": "transform_response",
+      "name": "Transform Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        850,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Process Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Data": {
+      "main": [
+        [
+          {
+            "node": "API Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Call": {
+      "main": [
+        [
+          {
+            "node": "Transform Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1.0.0",
+  "meta": {
+    "instanceId": "test"
+  }
+}
