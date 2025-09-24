@@ -513,4 +513,49 @@ export const getToolDefinitions = () => [
       required: ['path', 'checkpointName'],
     },
   },
+  {
+    name: 'generate_app',
+    description: 'Generate a Next.js app for managing workflow data within the current project',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'Name of the app directory (e.g., "app", "dashboard")',
+        },
+        stages: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Workflow stages for pipeline view (default: created, processing, review, completed)',
+        },
+        features: {
+          type: 'object',
+          properties: {
+            dashboard: {
+              type: 'boolean',
+              description: 'Include dashboard with stats and tables',
+            },
+            api: {
+              type: 'boolean',
+              description: 'Include API endpoints for workflow integration',
+            },
+            database: {
+              type: 'boolean',
+              description: 'Include SQLite database setup',
+            },
+            webhooks: {
+              type: 'boolean',
+              description: 'Include webhook receivers for n8n',
+            },
+            approvals: {
+              type: 'boolean',
+              description: 'Include approval/reject functionality',
+            },
+          },
+          description: 'Features to include in the app',
+        },
+      },
+      required: ['name'],
+    },
+  },
 ];

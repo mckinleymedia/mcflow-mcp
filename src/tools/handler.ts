@@ -12,6 +12,7 @@ import { addNodeToWorkflow, connectNodes } from '../workflows/operations.js';
 import { generateWorkflowFromTemplate } from '../workflows/templates.js';
 import { TrackingInjector } from '../workflows/tracking-injector.js';
 import { TrackingConfig } from '../workflows/tracking.js';
+import { AppGenerator } from '../app/generator.js';
 
 export class ToolHandler {
   private trackingConfig: TrackingConfig = { enabled: false };
@@ -382,6 +383,62 @@ export class ToolHandler {
               `Storage URL: ${checkpointStorageUrl}`
           }]
         };
+
+      case 'generate_app':
+        const appName = args?.name as string;
+        const stages = args?.stages as string[] || ['created', 'processing', 'review', 'completed'];
+        const features = args?.features || {
+          dashboard: true,
+          api: true,
+          database: true,
+          webhooks: true,
+          approvals: false
+        };
+
+        // Get project path (parent of workflows directory)
+        const projectPath = path.dirname(this.workflowsPath);
+
+        // Create app generator
+        const appGenerator = new AppGenerator(projectPath);
+
+        try {
+          await appGenerator.generateApp({
+            name: appName,
+            projectPath,
+            features,
+            stages
+          });
+
+          return {
+            content: [{
+              type: 'text',
+              text: `✅ Successfully generated Next.js app: ${appName}\\n\\n` +
+                `📁 Location: ${path.join(projectPath, appName)}\\n\\n` +
+                `Features included:\\n` +
+                `• Dashboard: ${features.dashboard ? 'Yes' : 'No'}\\n` +
+                `• API Endpoints: ${features.api ? 'Yes' : 'No'}\\n` +
+                `• Database (SQLite): ${features.database ? 'Yes' : 'No'}\\n` +
+                `• Webhook Receivers: ${features.webhooks ? 'Yes' : 'No'}\\n` +
+                `• Approval System: ${features.approvals ? 'Yes' : 'No'}\\n\\n` +
+                `Pipeline Stages: ${stages.join(' → ')}\\n\\n` +
+                `Next steps:\\n` +
+                `1. cd ${appName}\\n` +
+                `2. npm install\\n` +
+                `3. npm run dev\\n\\n` +
+                `The app will be available at http://localhost:3000\\n\\n` +
+                `To integrate with n8n workflows:\\n` +
+                `• Use the tracking system: mcflow add_tracking --storageUrl http://localhost:3000\\n` +
+                `• Or add HTTP Request nodes manually to your workflows`
+            }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{
+              type: 'text',
+              text: `❌ Failed to generate app: ${error.message}`
+            }]
+          };
+        }
 
       default:
         throw new Error(`Unknown tool: ${toolName}`);
