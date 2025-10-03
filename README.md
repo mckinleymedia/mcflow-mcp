@@ -36,11 +36,15 @@ Add to Claude Code config (`~/.claude.json`):
 - Deploy workflows with automatic code compilation
 - Generate workflow templates
 - Manage n8n instance (auto-installs if needed)
+- **NEW**: Generic workflow tracking system with checkpoints and error handling
+- **NEW**: Generate Next.js apps for workflow data management
 
 ## Docs
 
 - [Getting Started](docs/overview.md)
 - [AI Instructions](docs/ai/instructions.md)
+- [Workflow Tracking](docs/workflow-tracking.md)
+- [App Generation](docs/app-generation.md)
 
 ## License
 

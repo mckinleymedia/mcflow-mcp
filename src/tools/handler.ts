@@ -10,8 +10,13 @@ import { analyzeWorkflow } from '../workflows/analyzer.js';
 import { validateWorkflow, autofixWorkflow } from '../workflows/validator.js';
 import { addNodeToWorkflow, connectNodes } from '../workflows/operations.js';
 import { generateWorkflowFromTemplate } from '../workflows/templates.js';
+import { TrackingInjector } from '../workflows/tracking-injector.js';
+import { TrackingConfig } from '../workflows/tracking.js';
+import { AppGenerator } from '../app/generator.js';
 
 export class ToolHandler {
+  private trackingConfig: TrackingConfig = { enabled: false };
+
   constructor(
     private workflowsPath: string,
     private workflowManager: WorkflowManager,
@@ -240,6 +245,199 @@ export class ToolHandler {
             return await this.credentialHelper.generateSecureEnvExample();
           default:
             throw new Error(`Unknown credential action: ${credAction}`);
+        }
+
+      case 'add_tracking':
+        const trackingPath = args?.path as string;
+        const storageUrl = args?.storageUrl || process.env.WORKFLOW_STORAGE_URL;
+        const trackingOptions = args?.options || {};
+
+        if (!storageUrl) {
+          return {
+            content: [{
+              type: 'text',
+              text: '❌ Storage URL is required. Please provide storageUrl parameter or set WORKFLOW_STORAGE_URL environment variable.'
+            }]
+          };
+        }
+
+        // Read workflow
+        const fullTrackingPath = path.join(this.workflowsPath, trackingPath);
+        const workflowContent = await fs.readFile(fullTrackingPath, 'utf-8');
+        const workflow = JSON.parse(workflowContent);
+
+        // Create injector with configuration
+        const injector = new TrackingInjector({
+          enabled: true,
+          storageUrl,
+          enableCheckpoints: trackingOptions.checkpoints?.length > 0,
+          enableErrorTracking: trackingOptions.addErrorTracking
+        });
+
+        // Inject tracking
+        const trackedWorkflow = await injector.injectTracking(workflow, trackingOptions);
+
+        // Save modified workflow
+        await fs.writeFile(fullTrackingPath, JSON.stringify(trackedWorkflow, null, 2));
+
+        // Count added nodes
+        const addedNodes = trackedWorkflow.nodes.length - workflow.nodes.length;
+
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Added ${addedNodes} tracking nodes to workflow\\n\\n` +
+              `Storage URL: ${storageUrl}\\n` +
+              `Start tracking: ${trackingOptions.addStartTracking !== false ? 'Yes' : 'No'}\\n` +
+              `End tracking: ${trackingOptions.addEndTracking !== false ? 'Yes' : 'No'}\\n` +
+              `Error tracking: ${trackingOptions.addErrorTracking ? 'Yes' : 'No'}\\n` +
+              `Checkpoints: ${trackingOptions.checkpoints?.length || 0}\\n` +
+              `Stored outputs: ${trackingOptions.storeOutputNodes?.length || 0}`
+          }]
+        };
+
+      case 'configure_tracking':
+        // Update global tracking configuration
+        this.trackingConfig = {
+          enabled: args?.enabled ?? this.trackingConfig.enabled,
+          storageUrl: args?.storageUrl || this.trackingConfig.storageUrl,
+          trackAllNodes: args?.trackAllNodes ?? this.trackingConfig.trackAllNodes,
+          enableCheckpoints: args?.enableCheckpoints ?? this.trackingConfig.enableCheckpoints,
+          enableErrorTracking: args?.enableErrorTracking ?? this.trackingConfig.enableErrorTracking
+        };
+
+        // Save configuration to file for persistence
+        const configPath = path.join(this.workflowsPath, '.tracking-config.json');
+        await fs.writeFile(configPath, JSON.stringify(this.trackingConfig, null, 2));
+
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Tracking configuration updated:\\n\\n` +
+              `Enabled: ${this.trackingConfig.enabled}\\n` +
+              `Storage URL: ${this.trackingConfig.storageUrl || 'Not set'}\\n` +
+              `Track all nodes: ${this.trackingConfig.trackAllNodes || false}\\n` +
+              `Enable checkpoints: ${this.trackingConfig.enableCheckpoints || false}\\n` +
+              `Enable error tracking: ${this.trackingConfig.enableErrorTracking || false}\\n\\n` +
+              `Configuration saved to ${configPath}`
+          }]
+        };
+
+      case 'add_checkpoint':
+        const checkpointPath = args?.path as string;
+        const checkpointName = args?.checkpointName as string;
+        const afterNode = args?.afterNode as string;
+        const addRestore = args?.addRestore as boolean;
+
+        // Read workflow
+        const fullCheckpointPath = path.join(this.workflowsPath, checkpointPath);
+        const checkpointWorkflowContent = await fs.readFile(fullCheckpointPath, 'utf-8');
+        const checkpointWorkflow = JSON.parse(checkpointWorkflowContent);
+
+        // Use configured storage URL or environment variable
+        const checkpointStorageUrl = this.trackingConfig.storageUrl || process.env.WORKFLOW_STORAGE_URL;
+
+        if (!checkpointStorageUrl) {
+          return {
+            content: [{
+              type: 'text',
+              text: '❌ Storage URL not configured. Use configure_tracking to set storageUrl or set WORKFLOW_STORAGE_URL environment variable.'
+            }]
+          };
+        }
+
+        // Create injector
+        const checkpointInjector = new TrackingInjector({
+          enabled: true,
+          storageUrl: checkpointStorageUrl,
+          enableCheckpoints: true
+        });
+
+        // Add checkpoint
+        let modifiedCheckpointWorkflow = checkpointWorkflow;
+
+        if (afterNode) {
+          // Add save checkpoint after specified node
+          modifiedCheckpointWorkflow = await checkpointInjector.injectTracking(checkpointWorkflow, {
+            checkpoints: [{ afterNode, checkpointName }]
+          });
+        }
+
+        if (addRestore) {
+          // Add restore checkpoint at workflow start
+          modifiedCheckpointWorkflow = await checkpointInjector.addCheckpointRestore(
+            modifiedCheckpointWorkflow,
+            checkpointName
+          );
+        }
+
+        // Save modified workflow
+        await fs.writeFile(fullCheckpointPath, JSON.stringify(modifiedCheckpointWorkflow, null, 2));
+
+        return {
+          content: [{
+            type: 'text',
+            text: `✅ Added checkpoint "${checkpointName}" to workflow\\n\\n` +
+              (afterNode ? `Save checkpoint after: ${afterNode}\\n` : '') +
+              (addRestore ? `Restore checkpoint at workflow start\\n` : '') +
+              `Storage URL: ${checkpointStorageUrl}`
+          }]
+        };
+
+      case 'generate_app':
+        const appName = args?.name as string;
+        const stages = args?.stages as string[] || ['created', 'processing', 'review', 'completed'];
+        const features = args?.features || {
+          dashboard: true,
+          api: true,
+          database: true,
+          webhooks: true,
+          approvals: false
+        };
+
+        // Get project path (parent of workflows directory)
+        const projectPath = path.dirname(this.workflowsPath);
+
+        // Create app generator
+        const appGenerator = new AppGenerator(projectPath);
+
+        try {
+          await appGenerator.generateApp({
+            name: appName,
+            projectPath,
+            features,
+            stages
+          });
+
+          return {
+            content: [{
+              type: 'text',
+              text: `✅ Successfully generated Next.js app: ${appName}\\n\\n` +
+                `📁 Location: ${path.join(projectPath, appName)}\\n\\n` +
+                `Features included:\\n` +
+                `• Dashboard: ${features.dashboard ? 'Yes' : 'No'}\\n` +
+                `• API Endpoints: ${features.api ? 'Yes' : 'No'}\\n` +
+                `• Database (SQLite): ${features.database ? 'Yes' : 'No'}\\n` +
+                `• Webhook Receivers: ${features.webhooks ? 'Yes' : 'No'}\\n` +
+                `• Approval System: ${features.approvals ? 'Yes' : 'No'}\\n\\n` +
+                `Pipeline Stages: ${stages.join(' → ')}\\n\\n` +
+                `Next steps:\\n` +
+                `1. cd ${appName}\\n` +
+                `2. npm install\\n` +
+                `3. npm run dev\\n\\n` +
+                `The app will be available at http://localhost:3000\\n\\n` +
+                `To integrate with n8n workflows:\\n` +
+                `• Use the tracking system: mcflow add_tracking --storageUrl http://localhost:3000\\n` +
+                `• Or add HTTP Request nodes manually to your workflows`
+            }]
+          };
+        } catch (error: any) {
+          return {
+            content: [{
+              type: 'text',
+              text: `❌ Failed to generate app: ${error.message}`
+            }]
+          };
         }
 
       default:

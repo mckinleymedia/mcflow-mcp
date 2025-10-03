@@ -1,7 +1,7 @@
 {
   "name": "mcflow",
   "version": "0.1.0",
-  "description": "MCP server for n8n workflow automation with enhanced context capabilities",
+  "description": "McFlow - Advanced n8n workflow automation platform with MCP integration",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
